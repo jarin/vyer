@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transit Delay Race Track 🏃‍♂️💨</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        label {
+            font-size: 12px;
+            color: #666;
+            font-weight: 600;
+        }
+
+        input, select {
+            padding: 8px 12px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        button {
+            padding: 8px 16px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background: #5568d3;
+        }
+
+        .stats-panel {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .stat-card {
+            padding: 15px;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        #race-track {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            padding: 20px;
+            overflow-x: auto;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: white;
+            font-size: 18px;
+        }
+
+        .error {
+            background: #ff6b6b;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .runner-label {
+            font-weight: 600;
+        }
+
+        .ideal-marker {
+            opacity: 0.4;
+        }
+
+        .auto-refresh-indicator {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 12px;
+            color: #666;
+        }
+
+        .pulse {
+            width: 8px;
+            height: 8px;
+            background: #4caf50;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .tab {
+            padding: 12px 24px;
+            background: rgba(255, 255, 255, 0.3);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 16px;
+            transition: all 0.3s;
+            backdrop-filter: blur(10px);
+        }
+
+        .tab:hover {
+            background: rgba(255, 255, 255, 0.4);
+        }
+
+        .tab.active {
+            background: white;
+            color: #667eea;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .viz-container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            padding: 20px;
+            overflow-x: auto;
+        }
+
+        .scientific-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .chart-section {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+        }
+
+        .chart-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #667eea;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .chart-subtitle {
+            font-size: 12px;
+            color: #999;
+            margin-bottom: 15px;
+        }
+
+        @media (max-width: 1024px) {
+            .scientific-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .axis text {
+            font-size: 11px;
+        }
+
+        .axis-label {
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🏁 Transit Delay Race Track 🚆</h1>
+            <div class="controls">
+                <div class="control-group">
+                    <label for="stop-name">Stop Name</label>
+                    <input type="text" id="stop-name" placeholder="e.g., Lysaker stasjon" value="Lysaker stasjon">
+                </div>
+                <button id="refresh-btn">🔄 Refresh Now</button>
+                <div class="auto-refresh-indicator">
+                    <div class="pulse"></div>
+                    <span>Auto-refresh: <span id="countdown">60s</span></span>
+                </div>
+            </div>
+        </header>
+
+        <div id="error-container"></div>
+
+        <div class="stats-panel" id="stats-panel">
+            <div class="stat-card">
+                <div class="stat-value" id="total-journeys">-</div>
+                <div class="stat-label">Active Journeys</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="avg-delay">-</div>
+                <div class="stat-label">Average Delay</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="worst-delay">-</div>
+                <div class="stat-label">Worst Delay</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="chaos-score">-</div>
+                <div class="stat-label">Chaos Score</div>
+            </div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" data-tab="race">🏁 Race Track</button>
+            <button class="tab" data-tab="scientific">🤓 Geek Mode</button>
+        </div>
+
+        <div id="race-tab" class="tab-content active">
+            <div id="race-track" class="viz-container">
+                <div class="loading">Loading race track...</div>
+            </div>
+        </div>
+
+        <div id="scientific-tab" class="tab-content">
+            <div class="scientific-grid">
+                <div class="chart-section">
+                    <div class="chart-title">📊 Delay Distribution</div>
+                    <div class="chart-subtitle">Histogram showing frequency of delay intervals</div>
+                    <div id="histogram-chart"></div>
+                </div>
+                <div class="chart-section">
+                    <div class="chart-title">📈 Delay by Line</div>
+                    <div class="chart-subtitle">Box plot showing delay statistics per transit line</div>
+                    <div id="boxplot-chart"></div>
+                </div>
+                <div class="chart-section">
+                    <div class="chart-title">⏰ Timeline View</div>
+                    <div class="chart-subtitle">Scheduled vs actual arrival times</div>
+                    <div id="timeline-chart"></div>
+                </div>
+                <div class="chart-section">
+                    <div class="chart-title">🎯 Delay Scatter</div>
+                    <div class="chart-subtitle">Pattern analysis of delays over time</div>
+                    <div id="scatter-chart"></div>
+                </div>
+            </div>
+            <div class="chart-section" style="margin-bottom: 20px;">
+                <div class="chart-title">📉 Cumulative Distribution</div>
+                <div class="chart-subtitle">Percentage of journeys within delay thresholds</div>
+                <div id="cumulative-chart"></div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
