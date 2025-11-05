@@ -1,0 +1,276 @@
+name: Build, Security Scan & Deploy to Hetzner
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - 'claude/**'
+  pull_request:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  security-scan:
+    name: Security Vulnerability Scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run npm audit
+        run: npm audit --audit-level=moderate
+        continue-on-error: true
+
+      - name: Run npm audit (detailed)
+        run: npm audit --json > npm-audit-report.json
+        continue-on-error: true
+
+      - name: Upload npm audit report
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-audit-report
+          path: npm-audit-report.json
+
+      - name: Security code scan with ESLint (if configured)
+        run: |
+          if [ -f .eslintrc.json ] || [ -f .eslintrc.js ]; then
+            npm run lint || echo "ESLint not configured"
+          else
+            echo "ESLint not configured, skipping"
+          fi
+        continue-on-error: true
+
+  build-and-test:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    needs: security-scan
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run TypeScript compilation
+        run: npx tsc --noEmit
+
+      - name: Build frontend
+        run: npm run build
+        env:
+          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL || '/api/stop/' }}
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: dist/
+          retention-days: 7
+
+  docker-build-scan:
+    name: Build & Scan Docker Image
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    permissions:
+      contents: read
+      packages: write
+      security-events: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false
+          load: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      - name: Run Trivy vulnerability scanner (table output)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          format: 'table'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+
+      - name: Push Docker image
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy-hetzner:
+    name: Deploy to Hetzner
+    runs-on: ubuntu-latest
+    needs: docker-build-scan
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    environment:
+      name: production
+      url: ${{ secrets.PRODUCTION_URL }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.HETZNER_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.HETZNER_SERVER_IP }} >> ~/.ssh/known_hosts
+
+      - name: Deploy to Hetzner Server
+        env:
+          SERVER_IP: ${{ secrets.HETZNER_SERVER_IP }}
+          SERVER_USER: ${{ secrets.HETZNER_SERVER_USER || 'root' }}
+          REGISTRY: ${{ env.REGISTRY }}
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
+          GITHUB_SHA: ${{ github.sha }}
+          PORT: ${{ secrets.APP_PORT || '3001' }}
+          ALLOWED_ORIGINS: ${{ secrets.ALLOWED_ORIGINS }}
+          API_BASE_URL: ${{ secrets.API_BASE_URL || 'https://api.kaveland.no/forsinka/stop/' }}
+        run: |
+          ssh $SERVER_USER@$SERVER_IP << 'EOF'
+            set -e
+
+            echo "🚀 Starting deployment..."
+
+            # Login to GitHub Container Registry
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
+
+            # Pull latest image
+            echo "📦 Pulling Docker image..."
+            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+
+            # Stop and remove old container if exists
+            echo "🛑 Stopping old container..."
+            docker stop transit-delay-app || true
+            docker rm transit-delay-app || true
+
+            # Run new container
+            echo "🏃 Starting new container..."
+            docker run -d \
+              --name transit-delay-app \
+              --restart unless-stopped \
+              -p ${{ secrets.APP_PORT || '3001' }}:3001 \
+              -e NODE_ENV=production \
+              -e PORT=3001 \
+              -e ALLOWED_ORIGINS="${{ secrets.ALLOWED_ORIGINS }}" \
+              -e API_BASE_URL="${{ secrets.API_BASE_URL || 'https://api.kaveland.no/forsinka/stop/' }}" \
+              ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+
+            # Wait for health check
+            echo "🏥 Waiting for health check..."
+            sleep 5
+
+            # Check if container is running
+            if docker ps | grep -q transit-delay-app; then
+              echo "✅ Deployment successful!"
+              docker logs --tail 20 transit-delay-app
+            else
+              echo "❌ Deployment failed!"
+              docker logs --tail 50 transit-delay-app
+              exit 1
+            fi
+
+            # Cleanup old images
+            echo "🧹 Cleaning up old images..."
+            docker image prune -af --filter "until=72h" || true
+
+            echo "🎉 Deployment complete!"
+          EOF
+
+      - name: Verify deployment
+        run: |
+          echo "Waiting 10 seconds for service to be fully ready..."
+          sleep 10
+
+          # Check health endpoint
+          if [ -n "${{ secrets.PRODUCTION_URL }}" ]; then
+            curl -f ${{ secrets.PRODUCTION_URL }}/health || exit 1
+            echo "✅ Health check passed!"
+          else
+            echo "⚠️  PRODUCTION_URL not set, skipping health check"
+          fi
+
+      - name: Deployment notification
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ Deployment to Hetzner completed successfully!"
+          else
+            echo "❌ Deployment to Hetzner failed!"
+          fi

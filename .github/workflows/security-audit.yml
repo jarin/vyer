@@ -1,0 +1,137 @@
+name: Security Audit
+
+on:
+  schedule:
+    # Run security audit daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - 'package.json'
+      - 'package-lock.json'
+
+jobs:
+  security-audit:
+    name: NPM Security Audit
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+      issues: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run npm audit
+        id: npm-audit
+        run: |
+          npm audit --json > audit-report.json || true
+          npm audit || true
+        continue-on-error: true
+
+      - name: Check for vulnerabilities
+        id: check-vulnerabilities
+        run: |
+          CRITICAL=$(jq '.metadata.vulnerabilities.critical // 0' audit-report.json)
+          HIGH=$(jq '.metadata.vulnerabilities.high // 0' audit-report.json)
+          MODERATE=$(jq '.metadata.vulnerabilities.moderate // 0' audit-report.json)
+
+          echo "critical=$CRITICAL" >> $GITHUB_OUTPUT
+          echo "high=$HIGH" >> $GITHUB_OUTPUT
+          echo "moderate=$MODERATE" >> $GITHUB_OUTPUT
+
+          echo "📊 Vulnerability Summary:"
+          echo "Critical: $CRITICAL"
+          echo "High: $HIGH"
+          echo "Moderate: $MODERATE"
+
+      - name: Upload audit report
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-audit-report-${{ github.run_number }}
+          path: audit-report.json
+
+      - name: Create issue if vulnerabilities found
+        if: steps.check-vulnerabilities.outputs.critical > 0 || steps.check-vulnerabilities.outputs.high > 0
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const critical = ${{ steps.check-vulnerabilities.outputs.critical }};
+            const high = ${{ steps.check-vulnerabilities.outputs.high }};
+            const moderate = ${{ steps.check-vulnerabilities.outputs.moderate }};
+
+            const title = `🔒 Security Alert: ${critical} Critical, ${high} High vulnerabilities found`;
+            const body = `## Security Vulnerability Alert
+
+            NPM audit has detected security vulnerabilities in dependencies:
+
+            - 🔴 **Critical**: ${critical}
+            - 🟠 **High**: ${high}
+            - 🟡 **Moderate**: ${moderate}
+
+            ### Action Required
+
+            Please review the vulnerabilities and update dependencies:
+
+            \`\`\`bash
+            npm audit
+            npm audit fix
+            \`\`\`
+
+            ### Audit Report
+
+            Download the detailed audit report from the workflow artifacts.
+
+            **Workflow Run**: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+            ---
+            *This issue was automatically created by the Security Audit workflow.*
+            `;
+
+            // Check if similar issue already exists
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: ['security', 'dependencies']
+            });
+
+            const existingIssue = issues.data.find(issue =>
+              issue.title.includes('Security Alert')
+            );
+
+            if (!existingIssue) {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: title,
+                body: body,
+                labels: ['security', 'dependencies', 'automated']
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existingIssue.number,
+                body: `## Updated Security Scan\n\n${body}`
+              });
+            }
+
+      - name: Fail if critical vulnerabilities
+        if: steps.check-vulnerabilities.outputs.critical > 0
+        run: |
+          echo "❌ Critical vulnerabilities found! Please fix immediately."
+          exit 1
