@@ -501,8 +501,9 @@ function getTerrainHeight(x, z) {
   return Math.max(-0.5, height);
 }
 
-// Store line meshes for API access
+// Store line meshes and curves for API access
 const lineMeshes = new Map();
+const lineCurves = new Map();
 
 // Create railway lines
 function createRailwayLines() {
@@ -535,8 +536,9 @@ function createRailwayLines() {
     tube.userData = { lineName: line.name, originalColor: line.color };
     linesGroup.add(tube);
 
-    // Store reference for API
+    // Store references for API
     lineMeshes.set(line.name, tube);
+    lineCurves.set(line.name, curve);
   });
 
   return linesGroup;
@@ -617,10 +619,78 @@ scene.add(createTerrain());
 scene.add(createRailwayLines());
 scene.add(createStations());
 
+// Train animation system
+const trains = new Map();
+let trainIdCounter = 0;
+
+function createTrain(color = 0xffff00) {
+  const geometry = new THREE.SphereGeometry(0.8, 16, 16);
+  const material = new THREE.MeshLambertMaterial({
+    color: color,
+    emissive: color,
+    emissiveIntensity: 0.8
+  });
+  const train = new THREE.Mesh(geometry, material);
+  train.renderOrder = 3;
+  scene.add(train);
+  return train;
+}
+
+function animateTrain(trainId, lineName, duration = 10000, loop = false) {
+  const curve = lineCurves.get(lineName);
+  if (!curve) {
+    console.error(`Line ${lineName} not found`);
+    return;
+  }
+
+  const train = trains.get(trainId);
+  if (!train) {
+    console.error(`Train ${trainId} not found`);
+    return;
+  }
+
+  const startTime = Date.now();
+  train.userData.animating = true;
+  train.userData.lineName = lineName;
+  train.userData.duration = duration;
+  train.userData.startTime = startTime;
+  train.userData.loop = loop;
+}
+
+function updateTrains() {
+  const now = Date.now();
+
+  trains.forEach((train, trainId) => {
+    if (!train.userData.animating) return;
+
+    const elapsed = now - train.userData.startTime;
+    const duration = train.userData.duration;
+    let t = Math.min(elapsed / duration, 1);
+
+    if (t >= 1) {
+      if (train.userData.loop) {
+        train.userData.startTime = now;
+        t = 0;
+      } else {
+        train.userData.animating = false;
+        return;
+      }
+    }
+
+    const curve = lineCurves.get(train.userData.lineName);
+    if (curve) {
+      const point = curve.getPoint(t);
+      train.position.copy(point);
+      train.position.y += 0.5; // Slightly above the track
+    }
+  });
+}
+
 // Animation loop
 function animate() {
   requestAnimationFrame(animate);
   controls.update();
+  updateTrains(); // Update train positions
   renderer.render(scene, camera);
 }
 
@@ -691,5 +761,45 @@ window.railwayAPI = {
   // Get list of all line names
   getLines: () => {
     return Array.from(lineMeshes.keys());
+  },
+
+  // Train animation methods
+  createTrain: (color = 0xffff00) => {
+    const train = createTrain(color);
+    const trainId = `train_${trainIdCounter++}`;
+    trains.set(trainId, train);
+    train.visible = false; // Hide until animated
+    return trainId;
+  },
+
+  startTrain: (trainId, lineName, duration = 10000, loop = false) => {
+    const train = trains.get(trainId);
+    if (train) {
+      train.visible = true;
+      animateTrain(trainId, lineName, duration, loop);
+    }
+  },
+
+  stopTrain: (trainId) => {
+    const train = trains.get(trainId);
+    if (train) {
+      train.userData.animating = false;
+    }
+  },
+
+  removeTrain: (trainId) => {
+    const train = trains.get(trainId);
+    if (train) {
+      scene.remove(train);
+      trains.delete(trainId);
+    }
+  },
+
+  hideTrains: () => {
+    trains.forEach(train => train.visible = false);
+  },
+
+  showTrains: () => {
+    trains.forEach(train => train.visible = true);
   }
 };
