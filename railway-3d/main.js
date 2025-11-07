@@ -501,6 +501,9 @@ function getTerrainHeight(x, z) {
   return Math.max(-0.5, height);
 }
 
+// Store line meshes for API access
+const lineMeshes = new Map();
+
 // Create railway lines
 function createRailwayLines() {
   const linesGroup = new THREE.Group();
@@ -529,7 +532,11 @@ function createRailwayLines() {
     });
     const tube = new THREE.Mesh(tubeGeometry, tubeMaterial);
     tube.renderOrder = 1; // Render after terrain
+    tube.userData = { lineName: line.name, originalColor: line.color };
     linesGroup.add(tube);
+
+    // Store reference for API
+    lineMeshes.set(line.name, tube);
   });
 
   return linesGroup;
@@ -626,3 +633,63 @@ window.addEventListener('resize', () => {
 
 // Start animation
 animate();
+
+// Public API for highlighting and changing line colors
+window.railwayAPI = {
+  // Highlight a specific line (dim others)
+  highlightLine: (lineName) => {
+    lineMeshes.forEach((mesh, name) => {
+      if (name === lineName) {
+        mesh.material.emissiveIntensity = 1.0;
+        mesh.material.opacity = 1.0;
+      } else {
+        mesh.material.emissiveIntensity = 0.2;
+        mesh.material.transparent = true;
+        mesh.material.opacity = 0.3;
+      }
+    });
+  },
+
+  // Reset all lines to normal state
+  resetHighlight: () => {
+    lineMeshes.forEach((mesh) => {
+      mesh.material.emissiveIntensity = 0.5;
+      mesh.material.transparent = false;
+      mesh.material.opacity = 1.0;
+    });
+  },
+
+  // Change the color of a specific line
+  setLineColor: (lineName, color) => {
+    const mesh = lineMeshes.get(lineName);
+    if (mesh) {
+      const newColor = new THREE.Color(color);
+      mesh.material.color.set(newColor);
+      mesh.material.emissive.set(newColor);
+    }
+  },
+
+  // Reset line to original color
+  resetLineColor: (lineName) => {
+    const mesh = lineMeshes.get(lineName);
+    if (mesh) {
+      const originalColor = mesh.userData.originalColor;
+      mesh.material.color.set(originalColor);
+      mesh.material.emissive.set(originalColor);
+    }
+  },
+
+  // Reset all lines to original colors
+  resetAllColors: () => {
+    lineMeshes.forEach((mesh) => {
+      const originalColor = mesh.userData.originalColor;
+      mesh.material.color.set(originalColor);
+      mesh.material.emissive.set(originalColor);
+    });
+  },
+
+  // Get list of all line names
+  getLines: () => {
+    return Array.from(lineMeshes.keys());
+  }
+};

@@ -44,6 +44,16 @@
             display: flex;
             align-items: center;
             margin: 5px 0;
+            cursor: pointer;
+            padding: 3px 5px;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+        .legend-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        .legend-item.active {
+            background: rgba(255, 255, 255, 0.2);
         }
         .legend-color {
             width: 20px;
@@ -59,64 +69,91 @@
         <p>3D Topological Map</p>
         <p><small>Drag to rotate • Scroll to zoom</small></p>
         <div class="legend">
-            <div class="legend-item">
+            <div class="legend-item" data-line="Bergensbanen">
                 <div class="legend-color" style="background: #ff4444;"></div>
                 <span>Bergensbanen</span>
             </div>
-            <div class="legend-item">
+            <div class="legend-item" data-line="Vestfoldbanen">
                 <div class="legend-color" style="background: #00aaff;"></div>
                 <span>Vestfoldbanen</span>
             </div>
-            <div class="legend-item">
+            <div class="legend-item" data-line="Bratsbergbanen">
                 <div class="legend-color" style="background: #aa00ff;"></div>
                 <span>Bratsbergbanen</span>
             </div>
-            <div class="legend-item">
+            <div class="legend-item" data-line="Flåmsbana">
                 <div class="legend-color" style="background: #ff00ff;"></div>
                 <span>Flåmsbana</span>
             </div>
-            <div class="legend-item">
+            <div class="legend-item" data-line="Dovrebanen">
                 <div class="legend-color" style="background: #44ff44;"></div>
                 <span>Dovrebanen</span>
             </div>
-            <div class="legend-item">
+            <div class="legend-item" data-line="Raumabanen">
                 <div class="legend-color" style="background: #00ffff;"></div>
                 <span>Raumabanen</span>
             </div>
-            <div class="legend-item">
+            <div class="legend-item" data-line="Nordlandsbanen">
                 <div class="legend-color" style="background: #ffaa00;"></div>
                 <span>Nordlandsbanen</span>
             </div>
-            <div class="legend-item">
+            <div class="legend-item" data-line="Sørlandsbanen">
                 <div class="legend-color" style="background: #4444ff;"></div>
                 <span>Sørlandsbanen</span>
             </div>
-            <div class="legend-item">
+            <div class="legend-item" data-line="Østfoldbanen (Vestre)">
                 <div class="legend-color" style="background: #ff8800;"></div>
                 <span>Østfoldbanen (V)</span>
             </div>
-            <div class="legend-item">
+            <div class="legend-item" data-line="Østfoldbanen (Østre)">
                 <div class="legend-color" style="background: #ff6600;"></div>
                 <span>Østfoldbanen (Ø)</span>
             </div>
-            <div class="legend-item">
+            <div class="legend-item" data-line="Gjøvikbanen">
                 <div class="legend-color" style="background: #88ff00;"></div>
                 <span>Gjøvikbanen</span>
             </div>
-            <div class="legend-item">
+            <div class="legend-item" data-line="Rørosbanen">
                 <div class="legend-color" style="background: #ff0088;"></div>
                 <span>Rørosbanen</span>
             </div>
-            <div class="legend-item">
+            <div class="legend-item" data-line="Meråkerbanen">
                 <div class="legend-color" style="background: #00ff88;"></div>
                 <span>Meråkerbanen</span>
             </div>
-            <div class="legend-item">
+            <div class="legend-item" data-line="Jærbanen">
                 <div class="legend-color" style="background: #8800ff;"></div>
                 <span>Jærbanen</span>
             </div>
         </div>
     </div>
     <script type="module" src="/main.js"></script>
+    <script>
+        // Legend interaction handler
+        let currentlyHighlighted = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const legendItems = document.querySelectorAll('.legend-item');
+
+            legendItems.forEach(item => {
+                item.addEventListener('click', () => {
+                    const lineName = item.dataset.line;
+
+                    if (currentlyHighlighted === lineName) {
+                        // Clicking same line again resets
+                        window.railwayAPI.resetHighlight();
+                        legendItems.forEach(i => i.classList.remove('active'));
+                        currentlyHighlighted = null;
+                    } else {
+                        // Highlight the clicked line
+                        window.railwayAPI.highlightLine(lineName);
+                        legendItems.forEach(i => i.classList.remove('active'));
+                        item.classList.add('active');
+                        currentlyHighlighted = lineName;
+                    }
+                });
+            });
+        });
+    </script>
 </body>
 </html>
