@@ -2,7 +2,10 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
 // Norwegian railway network data - comprehensive topological representation
-// Coordinates based on approximate geographical positions, adjusted for 3D visualization
+// Coordinates adjusted for compact rectangular display - position/topology matters, not exact distances
+const X_SCALE = 1.0; // East-West scale
+const Z_SCALE = 0.4; // North-South compression for better fit
+
 const railwayData = {
   stations: {
     // Oslo and vicinity
@@ -214,7 +217,6 @@ const railwayData = {
 // Scene setup
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87ceeb); // Sky blue
-scene.fog = new THREE.Fog(0x87ceeb, 80, 250);
 
 // Camera
 const camera = new THREE.PerspectiveCamera(
@@ -223,8 +225,8 @@ const camera = new THREE.PerspectiveCamera(
   0.1,
   1000
 );
-camera.position.set(50, 60, 50);
-camera.lookAt(0, 0, -50);
+camera.position.set(0, 50, 10);
+camera.lookAt(0, 0, -20);
 
 // Renderer
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -236,8 +238,8 @@ document.getElementById('canvas-container').appendChild(renderer.domElement);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.dampingFactor = 0.05;
-controls.minDistance = 20;
-controls.maxDistance = 200;
+controls.minDistance = 15;
+controls.maxDistance = 120;
 
 // Lighting
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
@@ -299,8 +301,8 @@ function fractalNoise(x, z, octaves = 4, persistence = 0.5) {
 
 // Create base terrain with height map
 function createBaseTerrain() {
-  const width = 180;
-  const depth = 400;
+  const width = 180 * X_SCALE;
+  const depth = 400 * Z_SCALE;
   const widthSegments = 90;
   const depthSegments = 200;
 
@@ -358,7 +360,7 @@ function createBaseTerrain() {
   const terrain = new THREE.Mesh(geometry, material);
   terrain.rotation.x = -Math.PI / 2;
   terrain.position.y = -0.5;
-  terrain.position.z = -50;
+  terrain.position.z = -50 * Z_SCALE;
 
   return terrain;
 }
@@ -369,21 +371,21 @@ function createWater() {
 
   // Oslofjorden
   const fjordShape = new THREE.Shape();
-  fjordShape.moveTo(0, 0);
-  fjordShape.lineTo(-3, 8);
-  fjordShape.lineTo(-5, 12);
-  fjordShape.lineTo(-8, 18);
-  fjordShape.lineTo(-10, 22);
-  fjordShape.quadraticCurveTo(-12, 26, -8, 30);
-  fjordShape.lineTo(-5, 32);
-  fjordShape.lineTo(0, 35);
-  fjordShape.lineTo(5, 32);
-  fjordShape.lineTo(8, 28);
-  fjordShape.lineTo(10, 24);
-  fjordShape.lineTo(8, 18);
-  fjordShape.lineTo(5, 12);
-  fjordShape.lineTo(3, 6);
-  fjordShape.lineTo(0, 0);
+  fjordShape.moveTo(0*X_SCALE, 0*Z_SCALE);
+  fjordShape.lineTo(-3*X_SCALE, 8*Z_SCALE);
+  fjordShape.lineTo(-5*X_SCALE, 12*Z_SCALE);
+  fjordShape.lineTo(-8*X_SCALE, 18*Z_SCALE);
+  fjordShape.lineTo(-10*X_SCALE, 22*Z_SCALE);
+  fjordShape.quadraticCurveTo(-12*X_SCALE, 26*Z_SCALE, -8*X_SCALE, 30*Z_SCALE);
+  fjordShape.lineTo(-5*X_SCALE, 32*Z_SCALE);
+  fjordShape.lineTo(0*X_SCALE, 35*Z_SCALE);
+  fjordShape.lineTo(5*X_SCALE, 32*Z_SCALE);
+  fjordShape.lineTo(8*X_SCALE, 28*Z_SCALE);
+  fjordShape.lineTo(10*X_SCALE, 24*Z_SCALE);
+  fjordShape.lineTo(8*X_SCALE, 18*Z_SCALE);
+  fjordShape.lineTo(5*X_SCALE, 12*Z_SCALE);
+  fjordShape.lineTo(3*X_SCALE, 6*Z_SCALE);
+  fjordShape.lineTo(0*X_SCALE, 0*Z_SCALE);
 
   const fjordGeometry = new THREE.ShapeGeometry(fjordShape);
   const waterMaterial = new THREE.MeshLambertMaterial({
@@ -400,16 +402,16 @@ function createWater() {
 
   // Western coastline water
   const westCoastShape = new THREE.Shape();
-  westCoastShape.moveTo(-80, -30);
-  westCoastShape.lineTo(-85, -28);
-  westCoastShape.lineTo(-85, 0);
-  westCoastShape.lineTo(-70, 10);
-  westCoastShape.lineTo(-65, 25);
-  westCoastShape.lineTo(-60, 35);
-  westCoastShape.lineTo(-62, 45);
-  westCoastShape.lineTo(-65, 50);
-  westCoastShape.lineTo(-80, 50);
-  westCoastShape.lineTo(-80, -30);
+  westCoastShape.moveTo(-80*X_SCALE, -30*Z_SCALE);
+  westCoastShape.lineTo(-85*X_SCALE, -28*Z_SCALE);
+  westCoastShape.lineTo(-85*X_SCALE, 0*Z_SCALE);
+  westCoastShape.lineTo(-70*X_SCALE, 10*Z_SCALE);
+  westCoastShape.lineTo(-65*X_SCALE, 25*Z_SCALE);
+  westCoastShape.lineTo(-60*X_SCALE, 35*Z_SCALE);
+  westCoastShape.lineTo(-62*X_SCALE, 45*Z_SCALE);
+  westCoastShape.lineTo(-65*X_SCALE, 50*Z_SCALE);
+  westCoastShape.lineTo(-80*X_SCALE, 50*Z_SCALE);
+  westCoastShape.lineTo(-80*X_SCALE, -30*Z_SCALE);
 
   const westCoast = new THREE.Mesh(new THREE.ShapeGeometry(westCoastShape), waterMaterial);
   westCoast.rotation.x = -Math.PI / 2;
@@ -418,14 +420,14 @@ function createWater() {
 
   // Northern coast water
   const northCoastShape = new THREE.Shape();
-  northCoastShape.moveTo(10, -90);
-  northCoastShape.lineTo(0, -100);
-  northCoastShape.lineTo(5, -140);
-  northCoastShape.lineTo(10, -180);
-  northCoastShape.lineTo(15, -190);
-  northCoastShape.lineTo(30, -195);
-  northCoastShape.lineTo(30, -90);
-  northCoastShape.lineTo(10, -90);
+  northCoastShape.moveTo(10*X_SCALE, -90*Z_SCALE);
+  northCoastShape.lineTo(0*X_SCALE, -100*Z_SCALE);
+  northCoastShape.lineTo(5*X_SCALE, -140*Z_SCALE);
+  northCoastShape.lineTo(10*X_SCALE, -180*Z_SCALE);
+  northCoastShape.lineTo(15*X_SCALE, -190*Z_SCALE);
+  northCoastShape.lineTo(30*X_SCALE, -195*Z_SCALE);
+  northCoastShape.lineTo(30*X_SCALE, -90*Z_SCALE);
+  northCoastShape.lineTo(10*X_SCALE, -90*Z_SCALE);
 
   const northCoast = new THREE.Mesh(new THREE.ShapeGeometry(northCoastShape), waterMaterial);
   northCoast.rotation.x = -Math.PI / 2;
@@ -434,14 +436,14 @@ function createWater() {
 
   // Southeastern coast (Østfold area)
   const eastCoastShape = new THREE.Shape();
-  eastCoastShape.moveTo(8, 28);
-  eastCoastShape.lineTo(15, 30);
-  eastCoastShape.lineTo(18, 40);
-  eastCoastShape.lineTo(16, 50);
-  eastCoastShape.lineTo(10, 52);
-  eastCoastShape.lineTo(8, 45);
-  eastCoastShape.lineTo(10, 35);
-  eastCoastShape.lineTo(8, 28);
+  eastCoastShape.moveTo(8*X_SCALE, 28*Z_SCALE);
+  eastCoastShape.lineTo(15*X_SCALE, 30*Z_SCALE);
+  eastCoastShape.lineTo(18*X_SCALE, 40*Z_SCALE);
+  eastCoastShape.lineTo(16*X_SCALE, 50*Z_SCALE);
+  eastCoastShape.lineTo(10*X_SCALE, 52*Z_SCALE);
+  eastCoastShape.lineTo(8*X_SCALE, 45*Z_SCALE);
+  eastCoastShape.lineTo(10*X_SCALE, 35*Z_SCALE);
+  eastCoastShape.lineTo(8*X_SCALE, 28*Z_SCALE);
 
   const eastCoast = new THREE.Mesh(new THREE.ShapeGeometry(eastCoastShape), waterMaterial);
   eastCoast.rotation.x = -Math.PI / 2;
@@ -515,10 +517,12 @@ function createRailwayLines() {
 
     line.stations.forEach(stationName => {
       const station = railwayData.stations[stationName];
-      // Sample terrain height and elevate above it
-      const terrainHeight = getTerrainHeight(station.x, station.z);
+      // Apply aspect ratio scaling for compact display
+      const x = station.x * X_SCALE;
+      const z = station.z * Z_SCALE;
+      const terrainHeight = getTerrainHeight(x, z);
       const finalHeight = Math.max(terrainHeight + lineElevation, station.elevation + lineElevation);
-      points.push(new THREE.Vector3(station.x, finalHeight, station.z));
+      points.push(new THREE.Vector3(x, finalHeight, z));
     });
 
     // Create smooth curve
@@ -574,8 +578,10 @@ function createStations() {
   const lineElevation = 4.0; // Match railway line elevation
 
   Object.entries(railwayData.stations).forEach(([name, data]) => {
-    // Sample terrain height and elevate above it
-    const terrainHeight = getTerrainHeight(data.x, data.z);
+    // Apply aspect ratio scaling for compact display
+    const x = data.x * X_SCALE;
+    const z = data.z * Z_SCALE;
+    const terrainHeight = getTerrainHeight(x, z);
     const stationHeight = Math.max(terrainHeight + lineElevation, data.elevation + lineElevation);
 
     // Station sphere
@@ -586,7 +592,7 @@ function createStations() {
       emissiveIntensity: 0.6
     });
     const sphere = new THREE.Mesh(geometry, material);
-    sphere.position.set(data.x, stationHeight, data.z);
+    sphere.position.set(x, stationHeight, z);
     sphere.renderOrder = 2; // Render on top of lines
     stationsGroup.add(sphere);
 
@@ -600,13 +606,13 @@ function createStations() {
         opacity: 0.4
       });
       const pillar = new THREE.Mesh(pillarGeometry, pillarMaterial);
-      pillar.position.set(data.x, terrainHeight + pillarHeight / 2, data.z);
+      pillar.position.set(x, terrainHeight + pillarHeight / 2, z);
       stationsGroup.add(pillar);
     }
 
     // Station label
     const label = createTextSprite(name);
-    label.position.set(data.x, stationHeight + 1.2, data.z);
+    label.position.set(x, stationHeight + 1.2, z);
     label.renderOrder = 3; // Always on top
     stationsGroup.add(label);
   });
