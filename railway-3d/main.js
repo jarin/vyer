@@ -309,6 +309,9 @@ function createBaseTerrain() {
   const geometry = new THREE.PlaneGeometry(width, depth, widthSegments, depthSegments);
   const vertices = geometry.attributes.position.array;
 
+  // Create color array for vertex colors
+  const colors = new Float32Array(vertices.length);
+
   // Create Norway-like shape with terrain
   for (let i = 0; i < vertices.length; i += 3) {
     const x = vertices[i];
@@ -347,13 +350,59 @@ function createBaseTerrain() {
     }
 
     vertices[i + 2] = Math.max(-0.5, height); // y coordinate
+
+    // Assign colors based on elevation
+    const normalizedHeight = Math.max(0, Math.min(height + 0.5, 15)) / 15;
+    let r, g, b;
+
+    if (normalizedHeight < 0.1) {
+      // Water level / lowlands - greenish
+      r = 0.4 + normalizedHeight * 2;
+      g = 0.6 + normalizedHeight;
+      b = 0.3;
+    } else if (normalizedHeight < 0.3) {
+      // Low hills - rich green
+      const t = (normalizedHeight - 0.1) / 0.2;
+      r = 0.3 + t * 0.2;
+      g = 0.65 - t * 0.1;
+      b = 0.25 - t * 0.1;
+    } else if (normalizedHeight < 0.5) {
+      // Mid elevation - darker green/brown
+      const t = (normalizedHeight - 0.3) / 0.2;
+      r = 0.5 + t * 0.15;
+      g = 0.55 - t * 0.15;
+      b = 0.15;
+    } else if (normalizedHeight < 0.7) {
+      // High elevation - brownish
+      const t = (normalizedHeight - 0.5) / 0.2;
+      r = 0.65 + t * 0.1;
+      g = 0.4 - t * 0.15;
+      b = 0.15 - t * 0.05;
+    } else if (normalizedHeight < 0.85) {
+      // Mountain - gray/brown
+      const t = (normalizedHeight - 0.7) / 0.15;
+      r = 0.75 - t * 0.15;
+      g = 0.25 + t * 0.35;
+      b = 0.1 + t * 0.4;
+    } else {
+      // Peaks - snowy white/gray
+      const t = (normalizedHeight - 0.85) / 0.15;
+      r = 0.6 + t * 0.35;
+      g = 0.6 + t * 0.35;
+      b = 0.5 + t * 0.45;
+    }
+
+    colors[i] = r;
+    colors[i + 1] = g;
+    colors[i + 2] = b;
   }
 
   geometry.attributes.position.needsUpdate = true;
+  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
   geometry.computeVertexNormals();
 
   const material = new THREE.MeshLambertMaterial({
-    color: 0x4a5c3a,
+    vertexColors: true,
     flatShading: false,
   });
 
@@ -625,6 +674,32 @@ scene.add(createTerrain());
 scene.add(createRailwayLines());
 scene.add(createStations());
 
+// Audio system for station arrival sounds
+const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+function playStationBell() {
+  const now = audioContext.currentTime;
+
+  // Create oscillator for the bell sound
+  const oscillator = audioContext.createOscillator();
+  const gainNode = audioContext.createGain();
+
+  // Bell-like frequency (around E6)
+  oscillator.frequency.setValueAtTime(1318.51, now);
+  oscillator.type = 'sine';
+
+  // Envelope for natural bell decay
+  gainNode.gain.setValueAtTime(0.3, now);
+  gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+
+  // Connect and play
+  oscillator.connect(gainNode);
+  gainNode.connect(audioContext.destination);
+
+  oscillator.start(now);
+  oscillator.stop(now + 0.5);
+}
+
 // Train animation system
 const trains = new Map();
 let trainIdCounter = 0;
@@ -661,6 +736,14 @@ function animateTrain(trainId, lineName, duration = 10000, loop = false) {
   train.userData.duration = duration;
   train.userData.startTime = startTime;
   train.userData.loop = loop;
+  train.userData.lastStationIndex = -1; // Track last visited station
+
+  // Get station list for this line
+  const lineData = railwayData.lines.find(line => line.name === lineName);
+  if (lineData) {
+    train.userData.stations = lineData.stations;
+    train.userData.stationCount = lineData.stations.length;
+  }
 }
 
 function updateTrains() {
@@ -676,6 +759,7 @@ function updateTrains() {
     if (t >= 1) {
       if (train.userData.loop) {
         train.userData.startTime = now;
+        train.userData.lastStationIndex = -1; // Reset for next loop
         t = 0;
       } else {
         train.userData.animating = false;
@@ -688,6 +772,17 @@ function updateTrains() {
       const point = curve.getPoint(t);
       train.position.copy(point);
       train.position.y += 0.5; // Slightly above the track
+
+      // Check if train has reached a station
+      if (train.userData.stationCount) {
+        const stationIndex = Math.floor(t * train.userData.stationCount);
+
+        // Play bell when reaching a new station
+        if (stationIndex !== train.userData.lastStationIndex && stationIndex < train.userData.stationCount) {
+          playStationBell();
+          train.userData.lastStationIndex = stationIndex;
+        }
+      }
     }
   });
 }
