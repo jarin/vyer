@@ -103,19 +103,36 @@ export class DelayVisualizer {
       const station = railwayData.stations[stationName];
       if (!station) return;
 
+      // Only show moderate, severe, and chaos delays
+      const shouldShow = delayInfo.delayCategory === 'moderate' ||
+                        delayInfo.delayCategory === 'severe' ||
+                        delayInfo.delayCategory === 'chaos';
+
       // Get position
       const x = station.x * SCALE_CONFIG.X_SCALE;
       const z = station.z * SCALE_CONFIG.Z_SCALE;
       const terrainHeight = getTerrainHeight(x, z);
       const stationHeight = Math.max(terrainHeight + LINE_ELEVATION, station.elevation + LINE_ELEVATION);
 
-      // Create or update visualization
-      if (this.delaySprites.has(stationName)) {
-        // Update existing
-        this.updateDelayVisualization(stationName, delayInfo, stationHeight);
+      if (shouldShow) {
+        // Create or update visualization
+        if (this.delaySprites.has(stationName)) {
+          // Update existing
+          this.updateDelayVisualization(stationName, delayInfo, stationHeight);
+        } else {
+          // Create new
+          this.createDelayVisualization(stationName, delayInfo, x, z, stationHeight);
+        }
       } else {
-        // Create new
-        this.createDelayVisualization(stationName, delayInfo, x, z, stationHeight);
+        // Remove visualization if delay is now minor/on-time
+        if (this.delaySprites.has(stationName)) {
+          const group = this.delaySprites.get(stationName);
+          if (group) {
+            this.scene.remove(group);
+          }
+          this.delaySprites.delete(stationName);
+          this.animationData.delete(stationName);
+        }
       }
     });
   }
@@ -132,15 +149,15 @@ export class DelayVisualizer {
   ): void {
     const group = new THREE.Group();
 
-    // Create emoji sprite
+    // Create emoji sprite (smaller size)
     const emoji = DELAY_EMOJIS[delayInfo.delayCategory];
-    const sprite = createEmojiSprite(emoji, 1.5);
-    sprite.position.y = stationHeight + 3;
+    const sprite = createEmojiSprite(emoji, 1.0);
+    sprite.position.y = stationHeight + 2;
     group.add(sprite);
 
-    // Create pulse ring for severe/chaos delays
+    // Create pulse ring for severe/chaos delays (smaller)
     if (delayInfo.delayCategory === 'severe' || delayInfo.delayCategory === 'chaos') {
-      const ring = createPulseRing(DELAY_COLORS[delayInfo.delayCategory], 2);
+      const ring = createPulseRing(DELAY_COLORS[delayInfo.delayCategory], 1.5);
       ring.position.y = stationHeight + 0.1;
       group.add(ring);
     }
@@ -212,8 +229,8 @@ export class DelayVisualizer {
       // Floating animation for emoji
       const sprite = group.children[0];
       if (sprite) {
-        const floatOffset = Math.sin(elapsed * 2) * 0.3; // Slow sine wave
-        sprite.position.y = animData.initialY + 3 + floatOffset;
+        const floatOffset = Math.sin(elapsed * 2) * 0.2; // Slow sine wave
+        sprite.position.y = animData.initialY + 2 + floatOffset;
       }
 
       // Pulsing animation for ring

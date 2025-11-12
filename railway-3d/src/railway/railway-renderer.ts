@@ -12,6 +12,10 @@ import type { RailwayLineMetadata } from '../types';
 export const lineMeshes = new Map<string, THREE.Mesh>();
 export const lineCurves = new Map<string, THREE.CatmullRomCurve3>();
 
+// Storage for station labels (for toggling visibility)
+export const stationLabels: THREE.Sprite[] = [];
+export const stationSpheres: THREE.Mesh[] = [];
+
 /**
  * Create text sprite for station labels
  */
@@ -131,7 +135,9 @@ export function createStations(): THREE.Group {
     const sphere = new THREE.Mesh(geometry, material);
     sphere.position.set(x, stationHeight, z);
     sphere.renderOrder = 2; // Render on top of lines
+    sphere.userData = { stationName: name, isStation: true };
     stationsGroup.add(sphere);
+    stationSpheres.push(sphere);
 
     // Station pillar (connecting to terrain below)
     const pillarHeight = stationHeight - terrainHeight;
@@ -157,7 +163,24 @@ export function createStations(): THREE.Group {
     label.position.set(x, stationHeight + STATION_CONFIG.LABEL_OFFSET_Y, z);
     label.renderOrder = 3; // Always on top
     stationsGroup.add(label);
+    stationLabels.push(label);
   });
 
   return stationsGroup;
+}
+
+/**
+ * Toggle station labels visibility
+ */
+export function toggleStationLabels(visible: boolean): void {
+  stationLabels.forEach((label) => {
+    label.visible = visible;
+  });
+}
+
+/**
+ * Get current station labels visibility
+ */
+export function getStationLabelsVisible(): boolean {
+  return stationLabels.length > 0 ? stationLabels[0].visible : true;
 }
