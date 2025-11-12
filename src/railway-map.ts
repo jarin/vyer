@@ -163,9 +163,16 @@ export class RailwayMap {
     // Clear existing content
     this.container2d.innerHTML = '';
 
-    // Enable scrolling on container
+    // Enable scrolling on container and ensure it has proper dimensions
     this.container2d.style.overflow = 'auto';
     this.container2d.style.position = 'relative';
+    this.container2d.style.width = '100%';
+    this.container2d.style.height = '100%';
+
+    console.log('Initializing 2D map:', {
+      containerWidth: this.container2d.clientWidth,
+      containerHeight: this.container2d.clientHeight,
+    });
 
     // Dynamically import delay modules
     const { startDelayDataPolling } = await import('../railway-3d/src/delays/delay-fetcher');
@@ -203,10 +210,36 @@ export class RailwayMap {
     // Create subway-style schematic layout
     // Load from localStorage if available, otherwise use default layout
     let subwayLayout = this.loadLayoutFromStorage();
+
+    // Validate loaded layout - check if positions are reasonable
+    if (subwayLayout && subwayLayout.size > 0) {
+      let isValid = true;
+      subwayLayout.forEach((pos) => {
+        // Check if positions are within reasonable bounds
+        if (pos.x < 0 || pos.x > innerWidth || pos.y < 0 || pos.y > innerHeight) {
+          isValid = false;
+        }
+      });
+
+      if (!isValid) {
+        console.log('Invalid layout detected in localStorage, resetting to default');
+        localStorage.removeItem('railway-map-layout');
+        subwayLayout = null;
+      }
+    }
+
     if (!subwayLayout || subwayLayout.size === 0) {
       subwayLayout = this.createSubwayLayout(innerWidth, innerHeight, majorStations);
       this.saveLayoutToStorage(subwayLayout);
     }
+
+    // Debug: Log first few stations
+    console.log('Layout created/loaded:', {
+      totalStations: subwayLayout.size,
+      'Oslo S': subwayLayout.get('Oslo S'),
+      'Bergen': subwayLayout.get('Bergen'),
+      'Trondheim S': subwayLayout.get('Trondheim S'),
+    });
 
     // Draw railway lines with orthogonal routing
     railwayData.lines.forEach((line) => {
