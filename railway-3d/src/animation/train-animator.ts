@@ -5,10 +5,11 @@
 import * as THREE from 'three';
 import { lineCurves } from '../railway/railway-renderer';
 import { TRAIN_CONFIG } from '../data/constants';
-import type { TrainMesh } from '../types';
+import type { TrainAnimationData } from '../types';
+import { isTrainMesh } from '../types';
 
 // Train storage
-export const trains = new Map<string, TrainMesh>();
+export const trains = new Map<string, THREE.Mesh>();
 let trainIdCounter = 0;
 
 /**
@@ -30,14 +31,17 @@ export function createTrain(scene: THREE.Scene, color?: number): string {
   const train = new THREE.Mesh(geometry, material);
   train.renderOrder = 3;
   train.visible = false; // Hide until animated
-  train.userData = {
+
+  // Initialize userData with train animation data
+  const userData: TrainAnimationData = {
     animating: false,
-  } as TrainMesh['userData'];
+  };
+  train.userData = userData;
 
   scene.add(train);
 
   const trainId = `train_${trainIdCounter++}`;
-  trains.set(trainId, train as unknown as TrainMesh);
+  trains.set(trainId, train);
 
   return trainId;
 }
@@ -63,6 +67,11 @@ export function animateTrain(
     return;
   }
 
+  if (!isTrainMesh(train)) {
+    console.error(`Train ${trainId} does not have valid animation data`);
+    return;
+  }
+
   train.visible = true;
   train.userData.animating = true;
   train.userData.lineName = lineName;
@@ -79,7 +88,7 @@ export function updateTrains(): void {
   const now = Date.now();
 
   trains.forEach((train) => {
-    if (!train.userData.animating) return;
+    if (!isTrainMesh(train) || !train.userData.animating) return;
 
     const elapsed = now - (train.userData.startTime || 0);
     const duration = train.userData.duration || TRAIN_CONFIG.DEFAULT_DURATION;
@@ -109,7 +118,7 @@ export function updateTrains(): void {
  */
 export function stopTrain(trainId: string): void {
   const train = trains.get(trainId);
-  if (train) {
+  if (train && isTrainMesh(train)) {
     train.userData.animating = false;
   }
 }

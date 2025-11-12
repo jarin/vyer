@@ -6,10 +6,10 @@ import * as THREE from 'three';
 import { railwayData } from '../data/railway-data';
 import { SCALE_CONFIG, LINE_ELEVATION, LINE_CONFIG, STATION_CONFIG } from '../data/constants';
 import { getTerrainHeight } from '../terrain/terrain-generator';
-import type { RailwayMesh } from '../types';
+import type { RailwayLineMetadata } from '../types';
 
 // Storage for line meshes and curves (for API access and train animation)
-export const lineMeshes = new Map<string, RailwayMesh>();
+export const lineMeshes = new Map<string, THREE.Mesh>();
 export const lineCurves = new Map<string, THREE.CatmullRomCurve3>();
 
 /**
@@ -86,11 +86,18 @@ export function createRailwayLines(): THREE.Group {
 
     const tube = new THREE.Mesh(tubeGeometry, tubeMaterial);
     tube.renderOrder = 1; // Render after terrain
-    tube.userData = { lineName: line.name, originalColor: line.color };
+
+    // Initialize userData with railway line metadata
+    const metadata: RailwayLineMetadata = {
+      lineName: line.name,
+      originalColor: line.color,
+    };
+    tube.userData = metadata;
+
     linesGroup.add(tube);
 
     // Store references for API and train animation
-    lineMeshes.set(line.name, tube as unknown as RailwayMesh);
+    lineMeshes.set(line.name, tube);
     lineCurves.set(line.name, curve);
   });
 
