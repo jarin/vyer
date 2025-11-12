@@ -15,6 +15,7 @@ import {
 } from '../animation/train-animator';
 import { LINE_CONFIG } from '../data/constants';
 import type { RailwayAPI } from '../types';
+import { isRailwayLineMesh } from '../types';
 
 /**
  * Create and expose the public Railway API
@@ -26,7 +27,11 @@ export function createRailwayAPI(scene: THREE.Scene): RailwayAPI {
      */
     highlightLine: (lineName: string): void => {
       lineMeshes.forEach((mesh, name) => {
-        const material = mesh.material as THREE.MeshLambertMaterial;
+        if (!isRailwayLineMesh(mesh)) return;
+
+        const material = mesh.material;
+        if (!(material instanceof THREE.MeshLambertMaterial)) return;
+
         if (name === lineName) {
           material.emissiveIntensity = LINE_CONFIG.HIGHLIGHTED_INTENSITY;
           material.opacity = 1.0;
@@ -43,7 +48,11 @@ export function createRailwayAPI(scene: THREE.Scene): RailwayAPI {
      */
     resetHighlight: (): void => {
       lineMeshes.forEach((mesh) => {
-        const material = mesh.material as THREE.MeshLambertMaterial;
+        if (!isRailwayLineMesh(mesh)) return;
+
+        const material = mesh.material;
+        if (!(material instanceof THREE.MeshLambertMaterial)) return;
+
         material.emissiveIntensity = LINE_CONFIG.EMISSIVE_INTENSITY;
         material.transparent = false;
         material.opacity = 1.0;
@@ -55,12 +64,14 @@ export function createRailwayAPI(scene: THREE.Scene): RailwayAPI {
      */
     setLineColor: (lineName: string, color: number): void => {
       const mesh = lineMeshes.get(lineName);
-      if (mesh) {
-        const material = mesh.material as THREE.MeshLambertMaterial;
-        const newColor = new THREE.Color(color);
-        material.color.set(newColor);
-        material.emissive.set(newColor);
-      }
+      if (!mesh || !isRailwayLineMesh(mesh)) return;
+
+      const material = mesh.material;
+      if (!(material instanceof THREE.MeshLambertMaterial)) return;
+
+      const newColor = new THREE.Color(color);
+      material.color.set(newColor);
+      material.emissive.set(newColor);
     },
 
     /**
@@ -68,12 +79,14 @@ export function createRailwayAPI(scene: THREE.Scene): RailwayAPI {
      */
     resetLineColor: (lineName: string): void => {
       const mesh = lineMeshes.get(lineName);
-      if (mesh) {
-        const material = mesh.material as THREE.MeshLambertMaterial;
-        const originalColor = mesh.userData.originalColor;
-        material.color.set(originalColor);
-        material.emissive.set(originalColor);
-      }
+      if (!mesh || !isRailwayLineMesh(mesh)) return;
+
+      const material = mesh.material;
+      if (!(material instanceof THREE.MeshLambertMaterial)) return;
+
+      const originalColor = mesh.userData.originalColor;
+      material.color.set(originalColor);
+      material.emissive.set(originalColor);
     },
 
     /**
@@ -81,7 +94,11 @@ export function createRailwayAPI(scene: THREE.Scene): RailwayAPI {
      */
     resetAllColors: (): void => {
       lineMeshes.forEach((mesh) => {
-        const material = mesh.material as THREE.MeshLambertMaterial;
+        if (!isRailwayLineMesh(mesh)) return;
+
+        const material = mesh.material;
+        if (!(material instanceof THREE.MeshLambertMaterial)) return;
+
         const originalColor = mesh.userData.originalColor;
         material.color.set(originalColor);
         material.emissive.set(originalColor);

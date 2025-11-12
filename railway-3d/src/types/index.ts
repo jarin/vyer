@@ -58,6 +58,14 @@ export interface TrainAnimationData {
 }
 
 /**
+ * Railway line metadata
+ */
+export interface RailwayLineMetadata {
+  lineName: string;
+  originalColor: number;
+}
+
+/**
  * Public API for controlling the railway visualization
  */
 export interface RailwayAPI {
@@ -99,20 +107,29 @@ export interface RailwayAPI {
 }
 
 /**
- * Extended mesh with custom user data
+ * Type guard to check if userData contains train animation data
  */
-export interface RailwayMesh extends THREE.Mesh {
-  userData: {
-    lineName: string;
-    originalColor: number;
-  };
+export function isTrainMesh(mesh: THREE.Mesh): mesh is THREE.Mesh & { userData: TrainAnimationData } {
+  return (
+    typeof mesh.userData === 'object' &&
+    mesh.userData !== null &&
+    'animating' in mesh.userData &&
+    typeof mesh.userData.animating === 'boolean'
+  );
 }
 
 /**
- * Extended mesh for train with animation data
+ * Type guard to check if userData contains railway line metadata
  */
-export interface TrainMesh extends THREE.Mesh {
-  userData: TrainAnimationData;
+export function isRailwayLineMesh(mesh: THREE.Mesh): mesh is THREE.Mesh & { userData: RailwayLineMetadata } {
+  return (
+    typeof mesh.userData === 'object' &&
+    mesh.userData !== null &&
+    'lineName' in mesh.userData &&
+    'originalColor' in mesh.userData &&
+    typeof mesh.userData.lineName === 'string' &&
+    typeof mesh.userData.originalColor === 'number'
+  );
 }
 
 /**
