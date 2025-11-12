@@ -142,8 +142,8 @@ export class RailwayMap {
     this.container3d.addEventListener('mousemove', handleMouseMove);
     this.container3d.addEventListener('mouseleave', () => tooltipManager.hide());
 
-    // Setup resize handler
-    setupResizeHandler(camera, renderer);
+    // Setup resize handler with container reference
+    setupResizeHandler(camera, renderer, this.container3d);
 
     // Start animation loop
     startAnimationLoop(renderer, scene, camera, controls);

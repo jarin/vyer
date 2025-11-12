@@ -26,10 +26,13 @@ export function initializeScene(container: HTMLElement): SceneComponents {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(SCENE_CONFIG.BACKGROUND_COLOR);
 
-  // Camera setup
+  // Camera setup - use container dimensions instead of window
+  const containerWidth = container.clientWidth;
+  const containerHeight = container.clientHeight;
+
   const camera = new THREE.PerspectiveCamera(
     CAMERA_CONFIG.FOV,
-    window.innerWidth / window.innerHeight,
+    containerWidth / containerHeight,
     CAMERA_CONFIG.NEAR,
     CAMERA_CONFIG.FAR
   );
@@ -40,9 +43,9 @@ export function initializeScene(container: HTMLElement): SceneComponents {
   );
   camera.lookAt(CAMERA_CONFIG.LOOK_AT.x, CAMERA_CONFIG.LOOK_AT.y, CAMERA_CONFIG.LOOK_AT.z);
 
-  // Renderer setup
+  // Renderer setup - use container dimensions instead of window
   const renderer = new THREE.WebGLRenderer({ antialias: true });
-  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setSize(containerWidth, containerHeight);
   renderer.setPixelRatio(window.devicePixelRatio);
   container.appendChild(renderer.domElement);
 
@@ -87,12 +90,28 @@ export function initializeScene(container: HTMLElement): SceneComponents {
 
 /**
  * Setup window resize handler
+ * Note: This uses window dimensions for responsive behavior. For container-specific sizing,
+ * pass the container element and use its dimensions.
  */
-export function setupResizeHandler(camera: THREE.PerspectiveCamera, renderer: THREE.WebGLRenderer): void {
+export function setupResizeHandler(
+  camera: THREE.PerspectiveCamera,
+  renderer: THREE.WebGLRenderer,
+  container?: HTMLElement
+): void {
   window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
+    if (container) {
+      // Use container dimensions if provided
+      const width = container.clientWidth;
+      const height = container.clientHeight;
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+      renderer.setSize(width, height);
+    } else {
+      // Fall back to window dimensions
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
   });
 }
 
