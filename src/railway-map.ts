@@ -36,11 +36,13 @@ export class RailwayMap {
    * Initialize the map visualization
    */
   async initialize(): Promise<void> {
-    if (this.currentMode === '3d') {
-      await this.initialize3D();
-    } else {
+    // TODO: Re-enable 3D mode when needed
+    // For now, always initialize in 2D mode for editing
+    // if (this.currentMode === '3d') {
+    //   await this.initialize3D();
+    // } else {
       this.initialize2D();
-    }
+    // }
   }
 
   /**
@@ -52,9 +54,12 @@ export class RailwayMap {
     this.currentMode = mode;
 
     if (mode === '3d') {
-      this.container2d.style.display = 'none';
-      this.container3d.style.display = 'block';
-      this.initialize3D();
+      // TODO: Re-enable 3D map functionality
+      // Temporarily disabled to focus on editable 2D map
+      console.warn('3D mode temporarily disabled');
+      // this.container2d.style.display = 'none';
+      // this.container3d.style.display = 'block';
+      // this.initialize3D();
     } else {
       this.container3d.style.display = 'none';
       this.container2d.style.display = 'block';
@@ -64,7 +69,9 @@ export class RailwayMap {
 
   /**
    * Initialize 3D visualization
+   * TODO: Re-enable this when 3D mode is needed again
    */
+  // @ts-ignore - Temporarily unused
   private async initialize3D(): Promise<void> {
     // Clean up existing 3D scene
     this.cleanup3D();
@@ -156,6 +163,10 @@ export class RailwayMap {
     // Clear existing content
     this.container2d.innerHTML = '';
 
+    // Enable scrolling on container
+    this.container2d.style.overflow = 'auto';
+    this.container2d.style.position = 'relative';
+
     // Dynamically import delay modules
     const { startDelayDataPolling } = await import('../railway-3d/src/delays/delay-fetcher');
     const { TooltipManager } = await import('../railway-3d/src/core/tooltip-manager');
@@ -163,9 +174,9 @@ export class RailwayMap {
     // Store current delay data
     let currentDelayData = new Map<string, any>();
 
-    // Create SVG container
-    const width = this.container2d.clientWidth;
-    const height = this.container2d.clientHeight;
+    // Create larger SVG canvas for better spacing
+    const width = 3000;
+    const height = 2500;
     const margin = { top: 20, right: 200, bottom: 40, left: 40 };
     const innerWidth = width - margin.left - margin.right;
     const innerHeight = height - margin.top - margin.bottom;
@@ -190,8 +201,12 @@ export class RailwayMap {
     ]);
 
     // Create subway-style schematic layout
-    // This uses a grid-based approach with manual positioning for better readability
-    const subwayLayout = this.createSubwayLayout(innerWidth, innerHeight, majorStations);
+    // Load from localStorage if available, otherwise use default layout
+    let subwayLayout = this.loadLayoutFromStorage();
+    if (!subwayLayout || subwayLayout.size === 0) {
+      subwayLayout = this.createSubwayLayout(innerWidth, innerHeight, majorStations);
+      this.saveLayoutToStorage(subwayLayout);
+    }
 
     // Draw railway lines with orthogonal routing
     railwayData.lines.forEach((line) => {
@@ -282,6 +297,63 @@ export class RailwayMap {
       });
     };
 
+    // Redraw all lines (called after drag)
+    const redrawLines = () => {
+      g.selectAll('path').remove();
+      railwayData.lines.forEach((line) => {
+        const lineColor = `#${line.color.toString(16).padStart(6, '0')}`;
+        const pathData = this.createOrthogonalPath(line.stations, subwayLayout);
+        if (!pathData) return;
+
+        g.insert('path', ':first-child')
+          .attr('d', pathData)
+          .attr('fill', 'none')
+          .attr('stroke', lineColor)
+          .attr('stroke-width', 4)
+          .attr('stroke-linecap', 'round')
+          .attr('stroke-linejoin', 'round')
+          .attr('opacity', 0.8);
+      });
+    };
+
+    // Capture class instance for drag handler
+    const saveLayout = (layout: Map<string, { x: number; y: number }>) => {
+      this.saveLayoutToStorage(layout);
+    };
+
+    // Setup drag behavior
+    const drag = d3.drag<SVGCircleElement, unknown>()
+      .on('start', function(this: SVGCircleElement) {
+        d3.select(this).raise().attr('stroke-width', 4);
+      })
+      .on('drag', function(this: SVGCircleElement, event) {
+        const stationName = d3.select(this).attr('data-station');
+        const pos = subwayLayout.get(stationName);
+        if (pos) {
+          pos.x = event.x;
+          pos.y = event.y;
+
+          // Update circle position
+          d3.select(this).attr('cx', pos.x).attr('cy', pos.y);
+
+          // Update label position
+          stationGroup
+            .select(`[data-station-label="${stationName}"]`)
+            .attr('x', pos.x)
+            .attr('y', pos.y - (majorStations.has(stationName) ? 12 : 9));
+
+          // Redraw lines
+          redrawLines();
+        }
+      })
+      .on('end', function(this: SVGCircleElement) {
+        const isMajor = majorStations.has(d3.select(this).attr('data-station'));
+        d3.select(this).attr('stroke-width', isMajor ? 3 : 2);
+
+        // Save to localStorage
+        saveLayout(subwayLayout);
+      });
+
     // Draw stations
     subwayLayout.forEach((pos, name) => {
       const isMajor = majorStations.has(name);
@@ -303,7 +375,7 @@ export class RailwayMap {
         strokeColor = colorMap[delayInfo.delayCategory] || strokeColor;
       }
 
-      // Station marker
+      // Station marker (draggable)
       const circle = stationGroup
         .append('circle')
         .attr('cx', pos.x)
@@ -312,8 +384,9 @@ export class RailwayMap {
         .attr('fill', fillColor)
         .attr('stroke', strokeColor)
         .attr('stroke-width', isMajor ? 3 : 2)
-        .style('cursor', 'pointer')
-        .attr('data-station', name);
+        .style('cursor', 'move')
+        .attr('data-station', name)
+        .call(drag);
 
       // Station label (always visible for major stations)
       stationGroup
@@ -333,7 +406,6 @@ export class RailwayMap {
       circle
         .on('mouseover', function (this: SVGCircleElement, event: MouseEvent) {
           const hoveredStation = d3.select(this).attr('data-station');
-          d3.select(this).attr('r', isMajor ? 12 : 8).attr('fill', strokeColor);
           stationGroup
             .select(`[data-station-label="${hoveredStation}"]`)
             .attr('opacity', 1)
@@ -348,7 +420,6 @@ export class RailwayMap {
         })
         .on('mouseout', function (this: SVGCircleElement) {
           const hoveredStation = d3.select(this).attr('data-station');
-          d3.select(this).attr('r', radius).attr('fill', fillColor);
           stationGroup
             .select(`[data-station-label="${hoveredStation}"]`)
             .attr('opacity', isMajor ? 1 : 0.7)
@@ -409,6 +480,52 @@ export class RailwayMap {
 
     // Start animation
     setTimeout(animatePulse, 100);
+
+    // Add control buttons
+    const controls = svg.append('g').attr('transform', 'translate(20, 20)');
+
+    // Export button
+    const exportBtn = controls.append('g').style('cursor', 'pointer');
+    exportBtn
+      .append('rect')
+      .attr('width', 140)
+      .attr('height', 35)
+      .attr('fill', 'rgba(102, 126, 234, 0.9)')
+      .attr('rx', 5);
+    exportBtn
+      .append('text')
+      .attr('x', 70)
+      .attr('y', 22)
+      .attr('text-anchor', 'middle')
+      .attr('fill', '#ffffff')
+      .attr('font-size', '14px')
+      .attr('font-weight', 'bold')
+      .text('Export Layout');
+    exportBtn.on('click', () => this.exportLayout(subwayLayout));
+
+    // Reset button
+    const resetBtn = controls.append('g').attr('transform', 'translate(0, 45)').style('cursor', 'pointer');
+    resetBtn
+      .append('rect')
+      .attr('width', 140)
+      .attr('height', 35)
+      .attr('fill', 'rgba(234, 102, 102, 0.9)')
+      .attr('rx', 5);
+    resetBtn
+      .append('text')
+      .attr('x', 70)
+      .attr('y', 22)
+      .attr('text-anchor', 'middle')
+      .attr('fill', '#ffffff')
+      .attr('font-size', '14px')
+      .attr('font-weight', 'bold')
+      .text('Reset Layout');
+    resetBtn.on('click', () => {
+      if (confirm('Reset to default layout? This will clear your custom positioning.')) {
+        localStorage.removeItem('railway-map-layout');
+        location.reload();
+      }
+    });
 
     // Add legend
     const legend = svg.append('g').attr('transform', `translate(${width - 180}, 20)`);
@@ -679,6 +796,64 @@ export class RailwayMap {
     }
 
     return pathSegments.join(' ');
+  }
+
+  /**
+   * Save layout to localStorage
+   */
+  private saveLayoutToStorage(layout: Map<string, { x: number; y: number }>): void {
+    const layoutObj: Record<string, { x: number; y: number }> = {};
+    layout.forEach((pos, name) => {
+      layoutObj[name] = pos;
+    });
+    localStorage.setItem('railway-map-layout', JSON.stringify(layoutObj));
+  }
+
+  /**
+   * Load layout from localStorage
+   */
+  private loadLayoutFromStorage(): Map<string, { x: number; y: number }> | null {
+    const stored = localStorage.getItem('railway-map-layout');
+    if (!stored) return null;
+
+    try {
+      const layoutObj = JSON.parse(stored);
+      const layout = new Map<string, { x: number; y: number }>();
+      Object.keys(layoutObj).forEach((name) => {
+        layout.set(name, layoutObj[name]);
+      });
+      return layout;
+    } catch (e) {
+      console.error('Failed to load layout from localStorage:', e);
+      return null;
+    }
+  }
+
+  /**
+   * Export layout as JSON (copies to clipboard and downloads)
+   */
+  private exportLayout(layout: Map<string, { x: number; y: number }>): void {
+    const layoutObj: Record<string, { x: number; y: number }> = {};
+    layout.forEach((pos, name) => {
+      layoutObj[name] = pos;
+    });
+
+    const json = JSON.stringify(layoutObj, null, 2);
+
+    // Copy to clipboard
+    navigator.clipboard.writeText(json).then(() => {
+      alert('Layout copied to clipboard!\n\nYou can paste this into your code.');
+    }).catch(() => {
+      // Fallback: download as file
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'railway-map-layout.json';
+      a.click();
+      URL.revokeObjectURL(url);
+      alert('Layout downloaded as railway-map-layout.json');
+    });
   }
 
   /**
