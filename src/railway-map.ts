@@ -556,7 +556,8 @@ export class RailwayMap {
     resetBtn.on('click', () => {
       if (confirm('Reset to default layout? This will clear your custom positioning.')) {
         localStorage.removeItem('railway-map-layout');
-        location.reload();
+        // Reinitialize without full page reload to stay on 2D map
+        this.initialize2D();
       }
     });
 
