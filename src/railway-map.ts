@@ -175,8 +175,8 @@ export class RailwayMap {
     let currentDelayData = new Map<string, any>();
 
     // Create larger SVG canvas for better spacing
-    const width = 3000;
-    const height = 2500;
+    const width = 4000;
+    const height = 3000;
     const margin = { top: 20, right: 200, bottom: 40, left: 40 };
     const innerWidth = width - margin.left - margin.right;
     const innerHeight = height - margin.top - margin.bottom;
@@ -573,10 +573,10 @@ export class RailwayMap {
     _majorStations: Set<string>
   ): Map<string, { x: number; y: number }> {
     const layout = new Map<string, { x: number; y: number }>();
-    // Shift center right by 27.5% and down by one station spacing
-    const centerX = width / 2 + width * 0.275;
-    const centerY = height / 2 + 40;
-    const stationSpacing = 40; // Pixels between stations
+    // Center the map in the canvas with room for all directions
+    const centerX = width * 0.55; // Slightly right of center for westbound lines
+    const centerY = height * 0.5;
+    const stationSpacing = 50; // Increased spacing for better visibility
 
     // Helper to position stations along a line with even spacing
     const layoutLine = (
