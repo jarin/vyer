@@ -46,9 +46,13 @@ function main(): void {
   // Initialize delay visualizer
   const delayVisualizer = new DelayVisualizer(scene);
 
+  // Store current delay data for tooltips
+  let currentDelayData = new Map<string, import('./delays/delay-types').StationDelayInfo>();
+
   // Start polling for delay data
   const stopPolling = startDelayDataPolling((delayData) => {
     delayVisualizer.updateDelays(delayData);
+    currentDelayData = delayData; // Store for tooltip access
     console.log(`Updated delay visualization for ${delayData.size} stations`);
   });
 
@@ -60,6 +64,13 @@ function main(): void {
   const mouse = new THREE.Vector2();
 
   container.addEventListener('mousemove', (event) => {
+    // Only show enhanced tooltips when labels are hidden
+    const labelsVisible = getStationLabelsVisible();
+    if (labelsVisible) {
+      tooltipManager.hide();
+      return;
+    }
+
     // Calculate mouse position in normalized device coordinates
     const rect = container.getBoundingClientRect();
     mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
@@ -74,7 +85,9 @@ function main(): void {
     if (intersects.length > 0) {
       const intersected = intersects[0].object;
       if (intersected.userData.isStation && intersected.userData.stationName) {
-        tooltipManager.show(intersected.userData.stationName, event.clientX, event.clientY);
+        const stationName = intersected.userData.stationName;
+        const delayInfo = currentDelayData.get(stationName);
+        tooltipManager.show(stationName, event.clientX, event.clientY, delayInfo);
       }
     } else {
       tooltipManager.hide();
