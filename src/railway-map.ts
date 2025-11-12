@@ -193,20 +193,14 @@ export class RailwayMap {
     // This uses a grid-based approach with manual positioning for better readability
     const subwayLayout = this.createSubwayLayout(innerWidth, innerHeight, majorStations);
 
-    // Draw railway lines with schematic routing
+    // Draw railway lines with orthogonal routing
     railwayData.lines.forEach((line) => {
       const lineColor = `#${line.color.toString(16).padStart(6, '0')}`;
 
-      // Create path data using subway layout
-      const pathData = line.stations
-        .map((stationName, index) => {
-          const pos = subwayLayout.get(stationName);
-          if (!pos) return null;
+      // Create path data using orthogonal routing for subway-style appearance
+      const pathData = this.createOrthogonalPath(line.stations, subwayLayout);
 
-          return index === 0 ? `M ${pos.x} ${pos.y}` : `L ${pos.x} ${pos.y}`;
-        })
-        .filter((d) => d !== null)
-        .join(' ');
+      if (!pathData) return;
 
       // Draw line
       g.append('path')
@@ -465,53 +459,242 @@ export class RailwayMap {
 
   /**
    * Create subway-style schematic layout
-   * Uses a grid-based system with strategic positioning for better readability
+   * Uses even spacing and ignores geography for better readability
    */
   private createSubwayLayout(
     width: number,
     height: number,
     _majorStations: Set<string>
   ): Map<string, { x: number; y: number }> {
-    const stations = railwayData.stations;
     const layout = new Map<string, { x: number; y: number }>();
+    const centerX = width / 2;
+    const centerY = height / 2;
+    const stationSpacing = 40; // Pixels between stations
 
-    // Get bounds
-    const stationNames = Object.keys(stations);
-    const xValues = stationNames.map((name) => stations[name].x);
-    const zValues = stationNames.map((name) => stations[name].z);
+    // Helper to position stations along a line with even spacing
+    const layoutLine = (
+      stations: string[],
+      startX: number,
+      startY: number,
+      direction: { x: number; y: number }
+    ) => {
+      stations.forEach((station, index) => {
+        layout.set(station, {
+          x: startX + direction.x * index * stationSpacing,
+          y: startY + direction.y * index * stationSpacing,
+        });
+      });
+    };
 
-    const xMin = Math.min(...xValues);
-    const xMax = Math.max(...xValues);
-    const zMin = Math.min(...zValues);
-    const zMax = Math.max(...zValues);
+    // Oslo S as the central hub
+    layout.set('Oslo S', { x: centerX, y: centerY });
 
-    // Create scales with extra spacing for crowded areas
-    // The subway map style uses more horizontal space and compresses less important areas
-    const xScale = d3.scaleLinear().domain([xMin, xMax]).range([0, width]);
-    const yScale = d3.scaleLinear().domain([zMin, zMax]).range([height, 0]);
+    // Bergensbanen - goes west (left) from Oslo
+    const bergenStations = [
+      'Nationaltheatret',
+      'Skøyen',
+      'Lysaker',
+      'Sandvika',
+      'Asker',
+      'Drammen',
+      'Mjøndalen',
+      'Hokksund',
+      'Vikersund',
+      'Hønefoss',
+      'Nesbyen',
+      'Gol',
+      'Ål',
+      'Geilo',
+      'Ustaoset',
+      'Haugastøl',
+      'Finse',
+      'Hallingskeid',
+      'Myrdal',
+      'Voss',
+      'Dale',
+      'Arna',
+      'Bergen',
+    ];
+    layoutLine(bergenStations, centerX - stationSpacing, centerY, { x: -1, y: 0 });
 
-    // Apply schematic positioning with adjustments for crowded areas
-    stationNames.forEach((name) => {
-      const station = stations[name];
-      let x = xScale(station.x);
-      let y = yScale(station.z);
+    // Vestfoldbanen - goes south-west from Drammen (already positioned)
+    const vestfoldStations = [
+      'Sande',
+      'Holmestrand',
+      'Tønsberg',
+      'Sandefjord',
+      'Larvik',
+      'Porsgrunn',
+      'Skien',
+    ];
+    const drammenPos = layout.get('Drammen')!;
+    layoutLine(vestfoldStations, drammenPos.x, drammenPos.y + stationSpacing, { x: 0, y: 1 });
 
-      // Adjust crowded Oslo area (expand horizontally and vertically)
-      if (station.x >= -5 && station.x <= 5 && station.z >= -5 && station.z <= 5) {
-        const centerX = xScale(0);
-        const centerY = yScale(0);
-        x = centerX + (x - centerX) * 2; // Expand by 2x
-        y = centerY + (y - centerY) * 2;
-      }
-
-      // Snap to grid for cleaner look (optional - comment out for smoother positioning)
-      // x = Math.round(x / 20) * 20;
-      // y = Math.round(y / 20) * 20;
-
-      layout.set(name, { x, y });
+    // Bratsbergbanen - from Porsgrunn
+    const porsgrunnPos = layout.get('Porsgrunn')!;
+    layout.set('Notodden', {
+      x: porsgrunnPos.x + stationSpacing,
+      y: porsgrunnPos.y,
     });
 
+    // Flåmsbana - branch from Myrdal going down
+    const myrdalPos = layout.get('Myrdal')!;
+    const flaamStations = ['Vatnahalsen', 'Kjosfossen', 'Berekvam', 'Flåm'];
+    layoutLine(flaamStations, myrdalPos.x, myrdalPos.y + stationSpacing, { x: 0, y: 1 });
+
+    // Dovrebanen - goes north from Oslo
+    const dovreStations = [
+      'Lillestrøm',
+      'Dal',
+      'Eidsvoll',
+      'Minnesund',
+      'Tangen',
+      'Hamar',
+      'Brumunddal',
+      'Moelv',
+      'Lillehammer',
+      'Vinstra',
+      'Otta',
+      'Dombås',
+      'Lesja',
+      'Oppdal',
+      'Støren',
+      'Trondheim S',
+    ];
+    layoutLine(dovreStations, centerX, centerY - stationSpacing, { x: 0, y: -1 });
+
+    // Raumabanen - branch from Dombås going west
+    const dombaasPos = layout.get('Dombås')!;
+    const raumaStations = ['Bjorli', 'Åndalsnes'];
+    layoutLine(raumaStations, dombaasPos.x - stationSpacing, dombaasPos.y, { x: -1, y: 0 });
+
+    // Gjøvikbanen - northwest from Oslo
+    const gjovikStations = ['Nydalen', 'Grefsen', 'Roa', 'Lunner', 'Gjøvik'];
+    layoutLine(gjovikStations, centerX - stationSpacing * 0.7, centerY - stationSpacing * 0.7, {
+      x: -0.7,
+      y: -0.7,
+    });
+
+    // Østfoldbanen (Vestre) - southeast from Oslo
+    const ostfoldVestreStations = [
+      'Loenga',
+      'Ski',
+      'Ås',
+      'Vestby',
+      'Moss',
+      'Rygge',
+      'Fredrikstad',
+      'Sarpsborg',
+      'Halden',
+      'Kornsjø',
+    ];
+    layoutLine(ostfoldVestreStations, centerX + stationSpacing * 0.5, centerY + stationSpacing * 0.5, {
+      x: 0.5,
+      y: 0.5,
+    });
+
+    // Østfoldbanen (Østre) - east from Ski
+    const skiPos = layout.get('Ski')!;
+    const ostfoldOstreStations = ['Spydeberg', 'Askim', 'Mysen', 'Rakkestad'];
+    layoutLine(ostfoldOstreStations, skiPos.x + stationSpacing, skiPos.y, { x: 1, y: 0 });
+
+    // Rørosbanen - from Hamar going east
+    const hamarPos = layout.get('Hamar')!;
+    const rorosStations = ['Elverum', 'Koppang', 'Tynset', 'Røros', 'Os'];
+    layoutLine(rorosStations, hamarPos.x + stationSpacing, hamarPos.y, { x: 1, y: 0 });
+
+    // Get Trondheim position for connecting lines
+    const trondheimPos = layout.get('Trondheim S')!;
+
+    // Nordlandsbanen - north from Trondheim
+    const nordlandStations = [
+      'Steinkjer',
+      'Grong',
+      'Mosjøen',
+      'Mo i Rana',
+      'Rognan',
+      'Fauske',
+      'Bodø',
+    ];
+    layoutLine(nordlandStations, trondheimPos.x, trondheimPos.y - stationSpacing, {
+      x: 0,
+      y: -1,
+    });
+
+    // Sørlandsbanen - southwest from Oslo through Drammen/Kongsberg
+    layout.set('Kongsberg', {
+      x: drammenPos.x - stationSpacing * 0.7,
+      y: drammenPos.y + stationSpacing * 0.7,
+    });
+    const kongsbergPos = layout.get('Kongsberg')!;
+    const sorlandStations = [
+      'Nordagutu',
+      'Bø',
+      'Lunde',
+      'Kristiansand',
+      'Vennesla',
+      'Marnardal',
+      'Egersund',
+      'Sandnes',
+      'Stavanger',
+    ];
+    layoutLine(sorlandStations, kongsbergPos.x - stationSpacing * 0.7, kongsbergPos.y + stationSpacing * 0.7, {
+      x: -0.7,
+      y: 0.7,
+    });
+
+    // Meråkerbanen - from Trondheim going east
+    layout.set('Hell', { x: trondheimPos.x + stationSpacing, y: trondheimPos.y });
+    const hellPos = layout.get('Hell')!;
+    const merakerStations = ['Hegra', 'Meråker', 'Storlien'];
+    layoutLine(merakerStations, hellPos.x + stationSpacing, hellPos.y, { x: 1, y: 0 });
+
     return layout;
+  }
+
+  /**
+   * Create orthogonal path routing for subway-style lines
+   * Routes lines with 90-degree angles between stations
+   */
+  private createOrthogonalPath(stations: string[], layout: Map<string, { x: number; y: number }>): string {
+    if (stations.length === 0) return '';
+
+    const pathSegments: string[] = [];
+    let prevPos = layout.get(stations[0]);
+    if (!prevPos) return '';
+
+    pathSegments.push(`M ${prevPos.x} ${prevPos.y}`);
+
+    for (let i = 1; i < stations.length; i++) {
+      const currPos = layout.get(stations[i]);
+      if (!currPos) continue;
+
+      const dx = currPos.x - prevPos.x;
+      const dy = currPos.y - prevPos.y;
+
+      // If the movement is purely horizontal or vertical, draw straight line
+      if (Math.abs(dx) < 1 || Math.abs(dy) < 1) {
+        pathSegments.push(`L ${currPos.x} ${currPos.y}`);
+      } else {
+        // Use orthogonal routing - go horizontal first, then vertical
+        // Or vertical first if that's the dominant direction
+        if (Math.abs(dx) > Math.abs(dy)) {
+          // Horizontal dominant
+          const midX = prevPos.x + dx;
+          pathSegments.push(`L ${midX} ${prevPos.y}`);
+          pathSegments.push(`L ${currPos.x} ${currPos.y}`);
+        } else {
+          // Vertical dominant
+          const midY = prevPos.y + dy;
+          pathSegments.push(`L ${prevPos.x} ${midY}`);
+          pathSegments.push(`L ${currPos.x} ${currPos.y}`);
+        }
+      }
+
+      prevPos = currPos;
+    }
+
+    return pathSegments.join(' ');
   }
 
   /**
