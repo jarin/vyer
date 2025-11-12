@@ -205,6 +205,54 @@
             display: block;
         }
 
+        #map-container {
+            position: relative;
+            width: 100%;
+            height: 700px;
+            background: #0a0e1a;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        #map-3d-view, #map-2d-view {
+            width: 100%;
+            height: 100%;
+        }
+
+        .map-controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 100;
+            display: flex;
+            gap: 10px;
+        }
+
+        .map-toggle-btn {
+            padding: 10px 20px;
+            background: rgba(255, 255, 255, 0.9);
+            color: #667eea;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.3s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .map-toggle-btn:hover {
+            background: white;
+            transform: translateY(-1px);
+            box-shadow: 0 3px 6px rgba(0,0,0,0.3);
+        }
+
+        .map-toggle-btn.active {
+            background: #667eea;
+            color: white;
+        }
+
         .viz-container {
             background: white;
             border-radius: 10px;
@@ -312,6 +360,7 @@
         <div class="tabs">
             <button class="tab active" data-tab="race">🏁 Race Track</button>
             <button class="tab" data-tab="scientific">🤓 Geek Mode</button>
+            <button class="tab" data-tab="map">🗺️ Network Map</button>
         </div>
 
         <div id="race-tab" class="tab-content active">
@@ -347,6 +396,17 @@
                 <div class="chart-title">📉 Cumulative Distribution</div>
                 <div class="chart-subtitle">Percentage of journeys within delay thresholds</div>
                 <div id="cumulative-chart"></div>
+            </div>
+        </div>
+
+        <div id="map-tab" class="tab-content">
+            <div id="map-container">
+                <div class="map-controls">
+                    <button id="toggle-3d-btn" class="map-toggle-btn active">🎮 3D View</button>
+                    <button id="toggle-2d-btn" class="map-toggle-btn">🗺️ 2D View</button>
+                </div>
+                <div id="map-3d-view"></div>
+                <div id="map-2d-view" style="display: none;"></div>
             </div>
         </div>
     </div>

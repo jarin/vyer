@@ -1,5 +1,6 @@
 import * as d3 from 'd3';
 import { ScientificVisualizations } from './scientific-viz';
+import { RailwayMap } from './railway-map';
 
 interface TransitJourney {
   vehicle_journey_id: string;
@@ -26,11 +27,14 @@ class TransitRaceTrack {
   private secondsUntilRefresh = 60;
   private scientificViz: ScientificVisualizations;
   private currentData: TransitJourney[] = [];
+  private railwayMap?: RailwayMap;
+  private mapInitialized = false;
 
   constructor() {
     this.scientificViz = new ScientificVisualizations();
     this.setupEventListeners();
     this.setupTabSwitching();
+    this.setupMapControls();
     this.fetchAndRender();
     this.startAutoRefresh();
   }
@@ -59,7 +63,7 @@ class TransitRaceTrack {
     const tabContents = document.querySelectorAll('.tab-content');
 
     tabs.forEach(tab => {
-      tab.addEventListener('click', () => {
+      tab.addEventListener('click', async () => {
         const tabName = (tab as HTMLElement).dataset.tab;
 
         // Update active states
@@ -78,9 +82,60 @@ class TransitRaceTrack {
           if (tabName === 'scientific' && this.currentData.length > 0) {
             this.scientificViz.renderAll(this.currentData);
           }
+
+          // If switching to map tab, initialize it if not already done
+          if (tabName === 'map' && !this.mapInitialized) {
+            await this.initializeMap();
+          }
         }
       });
     });
+  }
+
+  private setupMapControls(): void {
+    const toggle3dBtn = document.getElementById('toggle-3d-btn');
+    const toggle2dBtn = document.getElementById('toggle-2d-btn');
+
+    if (toggle3dBtn && toggle2dBtn) {
+      toggle3dBtn.addEventListener('click', () => {
+        if (this.railwayMap) {
+          this.railwayMap.switchMode('3d');
+          toggle3dBtn.classList.add('active');
+          toggle2dBtn.classList.remove('active');
+        }
+      });
+
+      toggle2dBtn.addEventListener('click', () => {
+        if (this.railwayMap) {
+          this.railwayMap.switchMode('2d');
+          toggle2dBtn.classList.add('active');
+          toggle3dBtn.classList.remove('active');
+        }
+      });
+    }
+  }
+
+  private async initializeMap(): Promise<void> {
+    const container3d = document.getElementById('map-3d-view');
+    const container2d = document.getElementById('map-2d-view');
+
+    if (!container3d || !container2d) {
+      console.error('Map containers not found');
+      return;
+    }
+
+    try {
+      this.railwayMap = new RailwayMap({
+        container3d,
+        container2d,
+        initialMode: '3d',
+      });
+
+      await this.railwayMap.initialize();
+      this.mapInitialized = true;
+    } catch (error) {
+      console.error('Failed to initialize railway map:', error);
+    }
   }
 
   private startAutoRefresh(): void {
