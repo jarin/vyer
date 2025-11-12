@@ -2,15 +2,36 @@ import express from 'express';
 import cors from 'cors';
 
 const app = express();
-const PORT = 3001;
-const API_BASE_URL = 'https://api.kaveland.no/forsinka/stop/';
+const PORT = process.env.PORT || 3001;
+const API_BASE_URL = process.env.API_BASE_URL || 'https://api.kaveland.no/forsinka/stop/';
+const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:5173', 'http://localhost:3001'];
+const NODE_ENV = process.env.NODE_ENV || 'development';
 
-// Enable CORS for all routes
-app.use(cors());
+// Configure CORS with restricted origins
+app.use(cors({
+  origin: ALLOWED_ORIGINS,
+  credentials: true,
+  optionsSuccessStatus: 200
+}));
+
 app.use(express.json());
 
+// Input validation middleware
+const validateStopName = (req, res, next) => {
+  const stopName = decodeURIComponent(req.params.stopName);
+
+  // Validate stop name: max 100 chars, letters, spaces, hyphens, Norwegian chars
+  if (!stopName || stopName.length > 100 || !/^[a-zA-ZæøåÆØÅ\s\-0-9]+$/.test(stopName)) {
+    return res.status(400).json({
+      error: 'Invalid stop name. Use letters, numbers, spaces, and hyphens only.'
+    });
+  }
+
+  next();
+};
+
 // Proxy endpoint for transit delay data
-app.get('/api/stop/:stopName', async (req, res) => {
+app.get('/api/stop/:stopName', validateStopName, async (req, res) => {
   try {
     const stopName = decodeURIComponent(req.params.stopName);
     const apiUrl = `${API_BASE_URL}${encodeURIComponent(stopName)}`;
@@ -29,11 +50,15 @@ app.get('/api/stop/:stopName', async (req, res) => {
     console.log(`Successfully fetched ${data.length} journeys`);
     res.json(data);
   } catch (error) {
+    // Log full error details server-side
     console.error('Error fetching data:', error);
-    res.status(500).json({
-      error: 'Failed to fetch transit data',
-      message: error.message
-    });
+
+    // Don't expose internal error details in production
+    const errorResponse = NODE_ENV === 'production'
+      ? { error: 'Failed to fetch transit data' }
+      : { error: 'Failed to fetch transit data', message: error.message };
+
+    res.status(500).json(errorResponse);
   }
 });
 
