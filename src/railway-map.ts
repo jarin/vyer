@@ -166,7 +166,7 @@ export class RailwayMap {
     // Create SVG container
     const width = this.container2d.clientWidth;
     const height = this.container2d.clientHeight;
-    const margin = { top: 60, right: 200, bottom: 40, left: 40 };
+    const margin = { top: 20, right: 200, bottom: 40, left: 40 };
     const innerWidth = width - margin.left - margin.right;
     const innerHeight = height - margin.top - margin.bottom;
 
@@ -410,19 +410,8 @@ export class RailwayMap {
     // Start animation
     setTimeout(animatePulse, 100);
 
-    // Add title
-    svg
-      .append('text')
-      .attr('x', width / 2)
-      .attr('y', 30)
-      .attr('text-anchor', 'middle')
-      .attr('fill', '#ffffff')
-      .attr('font-size', '20px')
-      .attr('font-weight', 'bold')
-      .text('Norwegian Railway Network - Subway Map Style');
-
     // Add legend
-    const legend = svg.append('g').attr('transform', `translate(${width - 180}, 60)`);
+    const legend = svg.append('g').attr('transform', `translate(${width - 180}, 20)`);
 
     legend
       .append('rect')
@@ -557,7 +546,7 @@ export class RailwayMap {
     ];
     layoutLine(dovreStationsFirst, centerX, centerY - stationSpacing, { x: 0, y: -1 });
 
-    // Second segment: From Moelv, go west/northwest to Trondheim
+    // Second segment: From Moelv, go west/northwest to Trondheim at shallow angle (15 degrees)
     const moelvPos = layout.get('Moelv')!;
     const dovreStationsSecond = [
       'Lillehammer',
@@ -569,9 +558,10 @@ export class RailwayMap {
       'Støren',
       'Trondheim S',
     ];
-    layoutLine(dovreStationsSecond, moelvPos.x - stationSpacing * 0.7, moelvPos.y - stationSpacing * 0.7, {
-      x: -0.7,
-      y: -0.7
+    // Use 15-degree angle: cos(15°) ≈ 0.966, sin(15°) ≈ 0.259
+    layoutLine(dovreStationsSecond, moelvPos.x - stationSpacing * 0.966, moelvPos.y - stationSpacing * 0.259, {
+      x: -0.966,
+      y: -0.259
     });
 
     // Raumabanen - branch from Dombås going west
@@ -666,8 +656,8 @@ export class RailwayMap {
   }
 
   /**
-   * Create orthogonal path routing for subway-style lines
-   * Routes lines with 90-degree angles between stations
+   * Create path routing with smooth diagonal lines
+   * Routes lines with straight diagonal connections between stations
    */
   private createOrthogonalPath(stations: string[], layout: Map<string, { x: number; y: number }>): string {
     if (stations.length === 0) return '';
@@ -682,27 +672,8 @@ export class RailwayMap {
       const currPos = layout.get(stations[i]);
       if (!currPos) continue;
 
-      const dx = currPos.x - prevPos.x;
-      const dy = currPos.y - prevPos.y;
-
-      // If the movement is purely horizontal or vertical, draw straight line
-      if (Math.abs(dx) < 1 || Math.abs(dy) < 1) {
-        pathSegments.push(`L ${currPos.x} ${currPos.y}`);
-      } else {
-        // Use orthogonal routing - go horizontal first, then vertical
-        // Or vertical first if that's the dominant direction
-        if (Math.abs(dx) > Math.abs(dy)) {
-          // Horizontal dominant
-          const midX = prevPos.x + dx;
-          pathSegments.push(`L ${midX} ${prevPos.y}`);
-          pathSegments.push(`L ${currPos.x} ${currPos.y}`);
-        } else {
-          // Vertical dominant
-          const midY = prevPos.y + dy;
-          pathSegments.push(`L ${prevPos.x} ${midY}`);
-          pathSegments.push(`L ${currPos.x} ${currPos.y}`);
-        }
-      }
+      // Draw straight line to next station (diagonal if needed)
+      pathSegments.push(`L ${currPos.x} ${currPos.y}`);
 
       prevPos = currPos;
     }
