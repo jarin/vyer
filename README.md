@@ -19,6 +19,21 @@ Professional statistical visualizations including:
 - **Scatter Plot**: Delay patterns over time
 - **Cumulative Distribution**: Percentile analysis (P50, P90, P95)
 
+### 🗺️ Network Map
+Interactive visualization of the entire Norwegian railway network:
+- **3D View**: Immersive 3D topological map with terrain
+  - Interactive terrain with mountains and elevation
+  - 100+ stations across 14 major railway lines
+  - Real-time delay visualization with animated emojis (⏱️😬🔥🚨)
+  - Hover tooltips showing station delays and statistics
+  - Orbital controls for camera manipulation
+- **2D View**: Clean top-down map for easier navigation
+  - SVG-based interactive map
+  - Color-coded railway lines with legend
+  - Station markers with hover effects
+  - Perfect for users who prefer 2D interfaces
+- **Smart API Discovery**: Automatically matches station names with delay API
+
 ### 📊 Statistics Dashboard
 - Total active journeys
 - Average delay
@@ -80,7 +95,8 @@ Transit delay data from: https://api.kaveland.no/forsinka/stop/[STOP_NAME]
 ## Technologies
 
 - **TypeScript** - Type-safe code
-- **D3.js v7** - Data visualization
+- **D3.js v7** - 2D data visualization and SVG maps
+- **Three.js** - 3D graphics and terrain rendering
 - **Express** - Backend proxy server
 - **Vite** - Fast build tool
 - **CORS** - Enable cross-origin requests
