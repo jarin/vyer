@@ -10,6 +10,8 @@ import { createTerrain } from './terrain/terrain-generator';
 import { createRailwayLines, createStations } from './railway/railway-renderer';
 import { updateTrains } from './animation/train-animator';
 import { createRailwayAPI } from './api/railway-api';
+import { DelayVisualizer } from './delays/delay-visualizer';
+import { startDelayDataPolling } from './delays/delay-fetcher';
 
 /**
  * Initialize and start the 3D railway visualization
@@ -33,6 +35,15 @@ function main(): void {
   // Add station markers and labels
   scene.add(createStations());
 
+  // Initialize delay visualizer
+  const delayVisualizer = new DelayVisualizer(scene);
+
+  // Start polling for delay data
+  const stopPolling = startDelayDataPolling((delayData) => {
+    delayVisualizer.updateDelays(delayData);
+    console.log(`Updated delay visualization for ${delayData.size} stations`);
+  });
+
   // Setup window resize handler
   setupResizeHandler(camera, renderer);
 
@@ -40,12 +51,21 @@ function main(): void {
   const railwayAPI = createRailwayAPI(scene);
   (window as any).railwayAPI = railwayAPI;
 
-  // Start the animation loop with train updates
-  startAnimationLoop(renderer, scene, camera, controls, updateTrains);
+  // Start the animation loop with train updates and delay animations
+  startAnimationLoop(renderer, scene, camera, controls, () => {
+    updateTrains();
+    delayVisualizer.animate();
+  });
 
   console.log('3D Norwegian Railway Network visualization initialized');
   console.log('Available API: window.railwayAPI');
   console.log('Available lines:', railwayAPI.getLines());
+  console.log('Delay visualization: Active (polling every 30s)');
+
+  // Cleanup on page unload
+  window.addEventListener('beforeunload', () => {
+    stopPolling();
+  });
 }
 
 // Start the application when DOM is ready
