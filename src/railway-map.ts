@@ -467,8 +467,9 @@ export class RailwayMap {
     _majorStations: Set<string>
   ): Map<string, { x: number; y: number }> {
     const layout = new Map<string, { x: number; y: number }>();
-    const centerX = width / 2;
-    const centerY = height / 2;
+    // Shift center right by 27.5% and down by one station spacing
+    const centerX = width / 2 + width * 0.275;
+    const centerY = height / 2 + 40;
     const stationSpacing = 40; // Pixels between stations
 
     // Helper to position stations along a line with even spacing
@@ -542,8 +543,9 @@ export class RailwayMap {
     const flaamStations = ['Vatnahalsen', 'Kjosfossen', 'Berekvam', 'Flåm'];
     layoutLine(flaamStations, myrdalPos.x, myrdalPos.y + stationSpacing, { x: 0, y: 1 });
 
-    // Dovrebanen - goes north from Oslo
-    const dovreStations = [
+    // Dovrebanen - goes north from Oslo, then curves west to Trondheim
+    // First segment: Oslo to Moelv (straight north)
+    const dovreStationsFirst = [
       'Lillestrøm',
       'Dal',
       'Eidsvoll',
@@ -552,6 +554,12 @@ export class RailwayMap {
       'Hamar',
       'Brumunddal',
       'Moelv',
+    ];
+    layoutLine(dovreStationsFirst, centerX, centerY - stationSpacing, { x: 0, y: -1 });
+
+    // Second segment: From Moelv, go west/northwest to Trondheim
+    const moelvPos = layout.get('Moelv')!;
+    const dovreStationsSecond = [
       'Lillehammer',
       'Vinstra',
       'Otta',
@@ -561,7 +569,10 @@ export class RailwayMap {
       'Støren',
       'Trondheim S',
     ];
-    layoutLine(dovreStations, centerX, centerY - stationSpacing, { x: 0, y: -1 });
+    layoutLine(dovreStationsSecond, moelvPos.x - stationSpacing * 0.7, moelvPos.y - stationSpacing * 0.7, {
+      x: -0.7,
+      y: -0.7
+    });
 
     // Raumabanen - branch from Dombås going west
     const dombaasPos = layout.get('Dombås')!;
@@ -598,11 +609,13 @@ export class RailwayMap {
     const ostfoldOstreStations = ['Spydeberg', 'Askim', 'Mysen', 'Rakkestad'];
     layoutLine(ostfoldOstreStations, skiPos.x + stationSpacing, skiPos.y, { x: 1, y: 0 });
 
-    // Rørosbanen - from Hamar going east
+    // Rørosbanen - from Hamar going east to Os, then up/west to Trondheim
     const hamarPos = layout.get('Hamar')!;
     const rorosStations = ['Elverum', 'Koppang', 'Tynset', 'Røros', 'Os'];
     layoutLine(rorosStations, hamarPos.x + stationSpacing, hamarPos.y, { x: 1, y: 0 });
 
+    // Note: The Rørosbanen continues from Os to Trondheim S
+    // This connection will be handled by the orthogonal path routing
     // Get Trondheim position for connecting lines
     const trondheimPos = layout.get('Trondheim S')!;
 
