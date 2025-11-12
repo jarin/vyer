@@ -6,11 +6,15 @@ import * as THREE from 'three';
 import { railwayData } from '../data/railway-data';
 import { SCALE_CONFIG, LINE_ELEVATION, LINE_CONFIG, STATION_CONFIG } from '../data/constants';
 import { getTerrainHeight } from '../terrain/terrain-generator';
-import type { RailwayMesh } from '../types';
+import type { RailwayLineMetadata } from '../types';
 
 // Storage for line meshes and curves (for API access and train animation)
-export const lineMeshes = new Map<string, RailwayMesh>();
+export const lineMeshes = new Map<string, THREE.Mesh>();
 export const lineCurves = new Map<string, THREE.CatmullRomCurve3>();
+
+// Storage for station labels (for toggling visibility)
+export const stationLabels: THREE.Sprite[] = [];
+export const stationSpheres: THREE.Mesh[] = [];
 
 /**
  * Create text sprite for station labels
@@ -86,11 +90,18 @@ export function createRailwayLines(): THREE.Group {
 
     const tube = new THREE.Mesh(tubeGeometry, tubeMaterial);
     tube.renderOrder = 1; // Render after terrain
-    tube.userData = { lineName: line.name, originalColor: line.color };
+
+    // Initialize userData with railway line metadata
+    const metadata: RailwayLineMetadata = {
+      lineName: line.name,
+      originalColor: line.color,
+    };
+    tube.userData = metadata;
+
     linesGroup.add(tube);
 
     // Store references for API and train animation
-    lineMeshes.set(line.name, tube as unknown as RailwayMesh);
+    lineMeshes.set(line.name, tube);
     lineCurves.set(line.name, curve);
   });
 
@@ -124,7 +135,9 @@ export function createStations(): THREE.Group {
     const sphere = new THREE.Mesh(geometry, material);
     sphere.position.set(x, stationHeight, z);
     sphere.renderOrder = 2; // Render on top of lines
+    sphere.userData = { stationName: name, isStation: true };
     stationsGroup.add(sphere);
+    stationSpheres.push(sphere);
 
     // Station pillar (connecting to terrain below)
     const pillarHeight = stationHeight - terrainHeight;
@@ -150,7 +163,24 @@ export function createStations(): THREE.Group {
     label.position.set(x, stationHeight + STATION_CONFIG.LABEL_OFFSET_Y, z);
     label.renderOrder = 3; // Always on top
     stationsGroup.add(label);
+    stationLabels.push(label);
   });
 
   return stationsGroup;
+}
+
+/**
+ * Toggle station labels visibility
+ */
+export function toggleStationLabels(visible: boolean): void {
+  stationLabels.forEach((label) => {
+    label.visible = visible;
+  });
+}
+
+/**
+ * Get current station labels visibility
+ */
+export function getStationLabelsVisible(): boolean {
+  return stationLabels.length > 0 ? stationLabels[0].visible : true;
 }

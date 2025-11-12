@@ -60,6 +60,21 @@
             height: 3px;
             margin-right: 8px;
         }
+        .toggle-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-top: 10px;
+            width: 100%;
+            transition: background 0.2s;
+        }
+        .toggle-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
     </style>
 </head>
 <body>
@@ -67,7 +82,8 @@
     <div id="info">
         <h2>Norwegian Railway Network</h2>
         <p>3D Topological Map</p>
-        <p><small>Drag to rotate • Scroll to zoom</small></p>
+        <p><small>Drag to rotate • Scroll to zoom<br>Hover over stations for names</small></p>
+        <button id="toggle-labels-btn" class="toggle-btn">Hide Labels</button>
         <div class="legend">
             <div class="legend-item" data-line="Bergensbanen">
                 <div class="legend-color" style="background: #ff4444;"></div>
