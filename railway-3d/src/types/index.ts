@@ -55,9 +55,6 @@ export interface TrainAnimationData {
   duration?: number;
   startTime?: number;
   loop?: boolean;
-  lastStationIndex?: number;
-  stations?: string[];
-  stationCount?: number;
 }
 
 /**

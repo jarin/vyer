@@ -1,45 +1,15 @@
 /**
- * Train animation system with station arrival sounds
+ * Train animation system
  */
 
 import * as THREE from 'three';
-import { railwayData } from '../data/railway-data';
 import { lineCurves } from '../railway/railway-renderer';
-import { TRAIN_CONFIG, AUDIO_CONFIG } from '../data/constants';
+import { TRAIN_CONFIG } from '../data/constants';
 import type { TrainMesh } from '../types';
-
-// Audio context for station bell sounds
-const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
 
 // Train storage
 export const trains = new Map<string, TrainMesh>();
 let trainIdCounter = 0;
-
-/**
- * Play station arrival bell sound
- */
-export function playStationBell(): void {
-  const now = audioContext.currentTime;
-
-  // Create oscillator for the bell sound
-  const oscillator = audioContext.createOscillator();
-  const gainNode = audioContext.createGain();
-
-  // Bell-like frequency (E6)
-  oscillator.frequency.setValueAtTime(AUDIO_CONFIG.BELL_FREQUENCY, now);
-  oscillator.type = AUDIO_CONFIG.OSCILLATOR_TYPE;
-
-  // Envelope for natural bell decay
-  gainNode.gain.setValueAtTime(AUDIO_CONFIG.BELL_VOLUME, now);
-  gainNode.gain.exponentialRampToValueAtTime(0.01, now + AUDIO_CONFIG.BELL_DURATION);
-
-  // Connect and play
-  oscillator.connect(gainNode);
-  gainNode.connect(audioContext.destination);
-
-  oscillator.start(now);
-  oscillator.stop(now + AUDIO_CONFIG.BELL_DURATION);
-}
 
 /**
  * Create a new train mesh
@@ -99,14 +69,6 @@ export function animateTrain(
   train.userData.duration = duration ?? TRAIN_CONFIG.DEFAULT_DURATION;
   train.userData.startTime = Date.now();
   train.userData.loop = loop ?? false;
-  train.userData.lastStationIndex = -1; // Track last visited station
-
-  // Get station list for this line
-  const lineData = railwayData.lines.find((line) => line.name === lineName);
-  if (lineData) {
-    train.userData.stations = lineData.stations;
-    train.userData.stationCount = lineData.stations.length;
-  }
 }
 
 /**
@@ -126,7 +88,6 @@ export function updateTrains(): void {
     if (t >= 1) {
       if (train.userData.loop) {
         train.userData.startTime = now;
-        train.userData.lastStationIndex = -1; // Reset for next loop
         t = 0;
       } else {
         train.userData.animating = false;
@@ -139,20 +100,6 @@ export function updateTrains(): void {
       const point = curve.getPoint(t);
       train.position.copy(point);
       train.position.y += TRAIN_CONFIG.TRACK_OFFSET_Y; // Slightly above the track
-
-      // Check if train has reached a station
-      if (train.userData.stationCount) {
-        const stationIndex = Math.floor(t * train.userData.stationCount);
-
-        // Play bell when reaching a new station
-        if (
-          stationIndex !== train.userData.lastStationIndex &&
-          stationIndex < train.userData.stationCount
-        ) {
-          playStationBell();
-          train.userData.lastStationIndex = stationIndex;
-        }
-      }
     }
   });
 }
