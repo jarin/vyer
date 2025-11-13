@@ -5,7 +5,7 @@
 
 import * as d3 from 'd3';
 import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 // Import railway data from the railway-3d project
 import { railwayData } from '../railway-3d/src/data/railway-data';
